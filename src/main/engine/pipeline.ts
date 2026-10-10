@@ -300,7 +300,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       node('audit', auditing.size ? 'running' : 'idle', auditing.size ? `${auditing.size}건 검수 중` : undefined)
     }
 
-    await pool(plan.tasks, settings.maxParallel, async (task: TaskSpec) => {
+    const runTask = async (task: TaskSpec) => {
       const role = roles.get(task.roleId)!
       const nodeId = `worker:${task.id}`
       const tr: TaskRun = run.tasks[task.id]
@@ -386,7 +386,23 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
         packet('audit', 'factbook', 'approved')
         break
       }
+    }
+    // 담당 하나가 끝내 실패해도 공정 전체를 멈추지 않는다 — 그 담당만 오류로 두고 나머지로 계속
+    await pool(plan.tasks, settings.maxParallel, async (task: TaskSpec) => {
+      try {
+        await runTask(task)
+      } catch (err) {
+        if (err instanceof PipelineCancelled || signal.aborted) throw err
+        const tr = run.tasks[task.id]
+        tr.status = 'error'
+        node(`worker:${task.id}`, 'error', '실패 — 나머지로 계속')
+        log(`worker:${task.id}`, `${task.title} 실패, 이 담당 없이 계속 진행: ${(err as Error).message.slice(0, 200)}`, 'error')
+        if (auditing.has(task.id)) setAudit(task.id, false)
+        persist()
+      }
     })
+    const okTasks = plan.tasks.filter((t) => run.tasks[t.id].rounds.some((r) => r.audit))
+    if (!okTasks.length) throw new Error('모든 하위 담당이 실패해 종합할 재료가 없습니다.')
     node('audit', 'done', '검수 완료')
 
     /* ---- 4. FACTBOOK 통합 ---- */
@@ -415,7 +431,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     }
 
     /* ---- 5. SIMULATE ---- */
-    const taskRuns = plan.tasks.map((t) => run.tasks[t.id])
+    const taskRuns = okTasks.map((t) => run.tasks[t.id])
     packet('factbook', 'simulate', 'fact')
     let simulation: Simulation | undefined
     if (!proc.simulate.run) {

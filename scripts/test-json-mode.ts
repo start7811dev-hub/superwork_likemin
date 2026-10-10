@@ -1,6 +1,6 @@
 /** 구조화 출력 경로 모의 테스트: npx esbuild scripts/test-json-mode.ts --bundle --platform=node --outfile=/tmp/t.cjs && node /tmp/t.cjs */
 import { ClaudeEngine } from '../src/main/engine/claude'
-import { AuditResultSchema, SimulationSchema } from '../src/shared/schemas'
+import { AuditResultSchema, SimulationSchema, WorkerReportSchema } from '../src/shared/schemas'
 
 const sim = { personas: [{ name: 'A', situation: 's', lens: 'l', predictedBehavior: 'p', mechanism: 'm', signal: 'g' }], edgeCases: [], blindSpots: ['b'] }
 const audit = { verdict: 'approve', trustScore: 80, issues: [], reworkInstruction: '', keptInsights: ['ok'] }
@@ -46,5 +46,15 @@ const big = SimulationSchema // 테스트용으로 큰 스키마처럼 취급
     const { e, seen } = engineWith([() => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(audit) }] })])
     const r = await e.structured({ model: 'm', system: [], user: 'x', effort: 'low', signal: sig, schema: AuditResultSchema })
     console.log('4) 작은 스키마는 structured outputs:', r.verdict, '| format 사용:', !!seen[0].output_config.format, '| tools 없음:', !seen[0].tools)
+  }
+  {
+    const report = { summary: 's', findings: [
+      { claim: 'a', kind: '사실', basis: 'b', source: '', confidence: '높음' },
+      { claim: 'c', kind: 'Inference', basis: 'b', source: '', confidence: 'Medium' },
+      { claim: 'd', kind: 'assumption', basis: 'b', source: '', confidence: 'low' }
+    ], implications: [], proposals: [], risks: [], unknowns: [] }
+    const { e, seen } = engineWith([() => ({ stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify(report) }] })])
+    const r = await e.structured({ model: 'm', system: [], user: 'x', effort: 'low', signal: sig, schema: WorkerReportSchema })
+    console.log('5) 분류값 자동 교정:', r.findings.map((f) => `${f.kind}/${f.confidence}`).join(', '), '| 재요청 없음:', seen.length === 1, '| format에 parse 없음:', !('parse' in seen[0].output_config.format))
   }
 })()

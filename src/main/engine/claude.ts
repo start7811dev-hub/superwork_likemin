@@ -60,6 +60,52 @@ function schemaInfo(schema: z.ZodType): { text: string; objects: number; schemaO
   return { text, objects: (text.match(/"type":"object"/g) ?? []).length, schemaObject: JSON.parse(text) }
 }
 
+/**
+ * structured outputs 형식만 넘긴다. SDK 헬퍼의 parse 함수까지 넘기면 SDK가 먼저 검증해
+ * 예외를 던지므로(재시도 로직을 건너뜀), 검증은 아래에서 직접 한다.
+ */
+const formatCache = new WeakMap<object, { type: 'json_schema'; schema: Record<string, unknown> }>()
+function outputFormat(schema: z.ZodType) {
+  let f = formatCache.get(schema)
+  if (!f) {
+    const { type, schema: js } = betaZodOutputFormat(schema)
+    f = { type, schema: js as Record<string, unknown> }
+    formatCache.set(schema, f)
+  }
+  return f
+}
+
+const ENUM_SYNONYMS: Record<string, string> = {
+  사실: 'fact', 추론: 'inference', 가설: 'hypothesis', 의견: 'opinion', 가정: 'hypothesis', assumption: 'hypothesis', estimate: 'inference', claim: 'opinion',
+  높음: 'high', 중간: 'medium', 보통: 'medium', 낮음: 'low', 강함: 'strong', 약함: 'weak',
+  승인: 'approve', 반려: 'rework', 유지: 'keep', 개선: 'improve'
+}
+
+/** enum 값 오류를 대소문자·한국어·동의어 기준으로 바로잡는다. 하나라도 고쳤으면 true */
+function coerceEnums(root: unknown, err: z.ZodError): boolean {
+  let fixed = false
+  for (const issue of err.issues) {
+    const values = (issue as { values?: unknown[] }).values
+    if (issue.code !== 'invalid_value' || !Array.isArray(values) || !issue.path.length) continue
+    let parent: any = root
+    for (const k of issue.path.slice(0, -1)) parent = parent?.[k as never]
+    const key = issue.path[issue.path.length - 1] as never
+    const cur = parent?.[key]
+    if (typeof cur !== 'string') continue
+    const norm = cur.trim().toLowerCase()
+    const options = values.map(String)
+    const hit =
+      options.find((o) => o.toLowerCase() === norm) ??
+      options.find((o) => o === ENUM_SYNONYMS[cur.trim()] || o === ENUM_SYNONYMS[norm]) ??
+      options.find((o) => norm.startsWith(o.toLowerCase()) || o.toLowerCase().startsWith(norm))
+    if (hit) {
+      parent[key] = hit
+      fixed = true
+    }
+  }
+  return fixed
+}
+
 /** zod 오류를 모델이 고치기 쉬운 짧은 목록으로 */
 function zodIssues(err: z.ZodError): string {
   return err.issues
@@ -158,7 +204,7 @@ export class ClaudeEngine {
         messages,
         ...(toolMode
           ? { output_config: { effort: opts.effort }, tools: [submitTool()], tool_choice: { type: 'auto' } }
-          : { output_config: { effort: opts.effort, format: betaZodOutputFormat(opts.schema) } })
+          : { output_config: { effort: opts.effort, format: outputFormat(opts.schema) } })
       } as BetaParams
       let msg: BetaMessage
       try {
@@ -196,7 +242,9 @@ export class ClaudeEngine {
         }
       }
       if (candidate !== undefined) {
-        const parsed = opts.schema.safeParse(candidate)
+        let parsed = opts.schema.safeParse(candidate)
+        // 분류값(enum) 표기만 틀린 경우는 재요청 없이 바로잡는다 (예: "사실" → fact, "Inference" → inference)
+        if (!parsed.success && coerceEnums(candidate, parsed.error)) parsed = opts.schema.safeParse(candidate)
         if (parsed.success) {
           const problem = opts.validate?.(parsed.data) ?? null
           if (!problem) return parsed.data
