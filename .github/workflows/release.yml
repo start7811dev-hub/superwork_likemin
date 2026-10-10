@@ -61,7 +61,8 @@ jobs:
           WIN_CSC_LINK: ${{ secrets.WIN_CERT_P12_BASE64 }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
-          MAC_EXTRA=""
+          # 인증서가 있으면 Developer ID 서명 + Apple 공증 → 경고 없이 열리고 macOS 자동 업데이트 동작
+          MAC_EXTRA="-c.mac.notarize=true"
           if [ -z "$CSC_LINK" ]; then
             # 인증서가 없으면 앱 전체에 임시(ad-hoc) 서명을 건다.
             # 서명이 아예 없으면 Apple Silicon이 "손상된 파일"로 실행을 막는다.

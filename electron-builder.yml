@@ -25,8 +25,7 @@ mac:
     - target: zip          # 자동 업데이트(Squirrel.Mac)에 필요
       arch: [arm64, x64]
   hardenedRuntime: true
-  # 배포 시 Apple Developer ID로 서명·공증해야 Gatekeeper 경고가 없습니다.
-  # notarize: true
+  # Developer ID 서명·공증은 release 워크플로가 인증서 시크릿이 있을 때 켭니다 (-c.mac.notarize=true).
 dmg:
   artifactName: SuperWork-LikeMin-${version}-${arch}.${ext}
 win:

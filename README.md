@@ -257,7 +257,24 @@ git push --follow-tags
 | `APPLE_ID`, `APPLE_APP_SPECIFIC_PASSWORD`, `APPLE_TEAM_ID` | 공증(notarization) |
 | `WIN_CERT_P12_BASE64`, `WIN_CERT_PASSWORD` | Windows 코드 서명 |
 
-macOS 공증까지 하려면 `electron-builder.yml`의 `mac.notarize`도 켭니다.
+인증서 시크릿(`MAC_CERT_P12_BASE64`)이 있으면 워크플로가 **Developer ID 서명 + Apple 공증**을 자동으로 켭니다. 이때부터 macOS에서도 경고 없이 열리고 자동 업데이트가 동작합니다. 시크릿이 없으면 임시(ad-hoc) 서명으로 빌드합니다.
+
+<details>
+<summary><b>Developer ID 인증서 받기 · 시크릿 등록 방법</b></summary>
+
+1. Xcode → **Settings → Accounts**에서 Apple ID로 로그인 → 팀 선택 → **Manage Certificates…** → 왼쪽 아래 **+** → **Developer ID Application** (팀의 Account Holder만 만들 수 있습니다)
+2. **키체인 접근** → 로그인 → 내 인증서 → `Developer ID Application: …`을 우클릭 → **내보내기** → `.p12`로 저장하고 암호 지정
+3. [appleid.apple.com](https://appleid.apple.com) → 로그인 및 보안 → **앱 암호** 생성 (공증용)
+4. [developer.apple.com/account](https://developer.apple.com/account) → 멤버십 세부 사항에서 **Team ID** 확인
+5. 저장소 폴더에서 시크릿 등록 (값은 프롬프트에 직접 입력):
+   ```bash
+   base64 -i DeveloperID.p12 | gh secret set MAC_CERT_P12_BASE64
+   gh secret set MAC_CERT_PASSWORD
+   gh secret set APPLE_ID
+   gh secret set APPLE_APP_SPECIFIC_PASSWORD
+   gh secret set APPLE_TEAM_ID
+   ```
+</details>
 
 ### 개발용 화면 캡처
 ```bash
