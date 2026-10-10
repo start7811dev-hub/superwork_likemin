@@ -1,7 +1,7 @@
 {
   "name": "super-work-like-min",
   "productName": "SUPER WORK - LIKE MIN",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "MIN처럼 생각하는 MPM이 업무를 분장·검증·종합하는 스타트업 기획 시뮬레이터",
   "main": "./out/main/index.js",
   "author": {

@@ -114,8 +114,9 @@ MPM의 모든 주요 결정은 **판단 엔진**이 내립니다. MIN의 자기 
 | macOS (Intel) | `SuperWork-LikeMin-x.y.z-x64.dmg` | |
 | Windows | `SuperWork-LikeMin-Setup-x.y.z.exe` | x64 · ARM64 통합 설치파일 |
 
-> **서명되지 않은 빌드를 처음 열 때**
-> - **macOS:** "확인되지 않은 개발자" 경고가 뜨면 앱을 **우클릭 → 열기**로 엽니다. 그래도 막히면 터미널에서 `xattr -cr "/Applications/SUPER WORK - LIKE MIN.app"`을 실행합니다.
+> **Apple 개발자 서명 전 빌드를 처음 열 때**
+> - **macOS:** DMG를 열어 앱을 **응용 프로그램** 폴더로 끌어다 놓습니다. 처음 실행할 때 "Apple은 악성 코드가 없음을 확인할 수 없습니다" 경고가 뜨면 **시스템 설정 → 개인정보 보호 및 보안**에서 **그래도 열기**를 누릅니다. 또는 터미널에서 `xattr -cr "/Applications/SUPER WORK - LIKE MIN.app"`을 실행한 뒤 엽니다.
+> - v0.1.0 Apple Silicon 빌드는 서명 누락으로 "손상된 파일" 경고가 뜹니다. **v0.1.1 이상**을 받으세요.
 > - **Windows:** SmartScreen 경고가 뜨면 **추가 정보 → 실행**을 누릅니다.
 
 설치한 뒤에는 앱이 새 버전을 스스로 확인하고 받습니다. 자세한 내용은 [자동 업데이트](#자동-업데이트)를 참고하세요.

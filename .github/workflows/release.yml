@@ -61,9 +61,21 @@ jobs:
           WIN_CSC_LINK: ${{ secrets.WIN_CERT_P12_BASE64 }}
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
-          if [ -z "$CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD; fi
+          MAC_EXTRA=""
+          if [ -z "$CSC_LINK" ]; then
+            # 인증서가 없으면 앱 전체에 임시(ad-hoc) 서명을 건다.
+            # 서명이 아예 없으면 Apple Silicon이 "손상된 파일"로 실행을 막는다.
+            export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD
+            MAC_EXTRA="-c.mac.identity=- -c.mac.hardenedRuntime=false"
+          fi
           if [ -z "$WIN_CSC_LINK" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; fi
-          if [ "$RUNNER_OS" = "macOS" ]; then npx electron-builder --mac --publish always; else npx electron-builder --win --publish always; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then
+            npx electron-builder --mac --publish always $MAC_EXTRA
+            # 서명 검증: 실패하면 릴리스를 공개하지 않는다
+            for app in release/*/mac*/*.app; do codesign --verify --deep --strict "$app"; done
+          else
+            npx electron-builder --win --publish always
+          fi
 
   # 3) 모든 파일이 올라간 뒤 공개 — 이때부터 설치된 앱이 업데이트를 받는다
   publish:
