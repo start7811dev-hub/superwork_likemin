@@ -5,21 +5,33 @@ name: Release
 on:
   push:
     tags: ['v*']
-  workflow_dispatch:
 
 permissions:
   contents: write
 
 jobs:
+  # 1) 초안 릴리스를 먼저 하나 만든다 — 빌드 작업들이 동시에 릴리스를 만들어 중복되는 것을 막는다
+  create-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release view "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --draft --title "${GITHUB_REF_NAME#v}" --notes "SUPER WORK – LIKE MIN ${GITHUB_REF_NAME}"
+
+  # 2) 각 OS에서 빌드해 같은 초안 릴리스에 업로드
   release:
+    needs: create-release
     strategy:
       fail-fast: false
       matrix:
         os: [macos-latest, windows-latest]
     runs-on: ${{ matrix.os }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -52,3 +64,13 @@ jobs:
           if [ -z "$CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD; fi
           if [ -z "$WIN_CSC_LINK" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; fi
           if [ "$RUNNER_OS" = "macOS" ]; then npx electron-builder --mac --publish always; else npx electron-builder --win --publish always; fi
+
+  # 3) 모든 파일이 올라간 뒤 공개 — 이때부터 설치된 앱이 업데이트를 받는다
+  publish:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release edit "$GITHUB_REF_NAME" -R "$GITHUB_REPOSITORY" --draft=false --latest

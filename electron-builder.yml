@@ -46,4 +46,5 @@ publish:
   provider: github
   owner: start7811dev-hub
   repo: superwork_likemin
-  releaseType: release
+  # 워크플로가 초안에 모은 뒤 마지막에 공개한다 (.github/workflows/release.yml)
+  releaseType: draft

@@ -241,7 +241,7 @@ npm run dist:win     # 로컬에서 Windows 설치파일 빌드
 npm version patch     # package.json 버전 올리기 + 태그 생성 (예: v0.1.1)
 git push --follow-tags
 ```
-`v*` 태그를 푸시하면 [Release 워크플로](.github/workflows/release.yml)가 GitHub Actions에서 macOS·Windows 설치파일을 빌드해 **GitHub Releases**에 올립니다. 설치된 앱은 시작할 때(그리고 **설정 → 업데이트 확인**에서) 새 버전을 확인합니다. 새 버전은 백그라운드에서 받고, **재시작하여 설치**로 적용합니다.
+`v*` 태그를 푸시하면 [Release 워크플로](.github/workflows/release.yml)가 GitHub Actions에서 초안 릴리스를 만들고, macOS·Windows 설치파일을 빌드해 그 초안에 올린 뒤, 모두 올라가면 **GitHub Releases**에 공개합니다. 설치된 앱은 시작할 때(그리고 **설정 → 업데이트 확인**에서) 새 버전을 확인합니다. 새 버전은 백그라운드에서 받고, **재시작하여 설치**로 적용합니다.
 
 | 플랫폼 | 자동 업데이트 조건 |
 | --- | --- |
