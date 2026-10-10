@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react'
-import type { Factbook, Judgment, Review, WorkerReport } from '@shared/schemas'
+import { METHODS, type Factbook, type Judgment, type ProcessPlan, type Review, type WorkerReport } from '@shared/schemas'
 import { estimateCost, type RunRecord } from '@shared/types'
 import type { LiveState } from '../live'
 
@@ -24,11 +24,37 @@ const Sec = ({ title, children }: { title: string; children: ReactNode }) => (
 const Ul = ({ items }: { items: string[] }) =>
   items.length ? <ul>{items.map((i, k) => <li key={k}>{i}</li>)}</ul> : <p className="muted">없음</p>
 
+/** MPM의 공정 설계: 무엇을 돌리고 무엇을 왜 생략했는가 */
+function ProcessView({ p }: { p: ProcessPlan }) {
+  const SCALE = { focused: '집중', standard: '표준', full: '전체' }
+  const row = (k: string, on: boolean, v: string, reason: string) => (
+    <li key={k}>
+      <span className={`tag ${on ? 'ok' : ''}`}>{k}</span> {v}
+      <div className="small muted">{reason}</div>
+    </li>
+  )
+  return (
+    <section className="ins-sec">
+      <h4>공정 설계 · {SCALE[p.scale]}</h4>
+      <p>{p.rationale}</p>
+      {p.givenContext && <p className="small"><b>주어진 전제</b> {p.givenContext}</p>}
+      <ul className="proc">
+        {row('담당', true, `${p.maxTasks}명`, '')}
+        {row('Factbook', p.factbook.mode !== 'skip', p.factbook.mode === 'full' ? '전원 조사' : p.factbook.mode === 'light' ? '일부 조사' : '생략', p.factbook.reason)}
+        {row('시뮬레이션', p.simulate.run, p.simulate.run ? '실행' : '생략', p.simulate.reason)}
+        {row('방법론', p.methods.length > 0, p.methods.length ? p.methods.map((m) => METHODS[m]).join(' · ') : '생략', p.methodsReason)}
+        {row('고도화', p.refine.run, p.refine.run ? '실행' : '생략', p.refine.reason)}
+        {row('MPM 클론', p.clone.run, p.clone.run ? '실행' : '생략', p.clone.reason)}
+      </ul>
+    </section>
+  )
+}
+
 /** 판단 엔진 기록: 근거 문서 → 적용 → 판단 */
 function JudgmentView({ j }: { j: Judgment }) {
   return (
     <section className="ins-sec judgment">
-      <h4>⚙️ 판단 엔진 · 확신 {LV[j.confidence]}</h4>
+      <h4>판단 엔진 · 확신 {LV[j.confidence]}</h4>
       <p><b>{j.decision}</b></p>
       <ul>
         {j.basis.map((b, i) => (
@@ -93,6 +119,8 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
           <Ul items={c.reframe.questionedPremises} />
         </Sec>
         <JudgmentView j={c.judgment} />
+        <ProcessView p={c.process} />
+        <Sec title="핵심 주장 가설"><Ul items={c.initialClaims} /></Sec>
         <Sec title={c.intent.clear ? '의도 — 파악 완료, 확인 없이 진행' : '의도 — 불분명해서 비유로 질문함'}>
           <p>{c.intent.reading}</p>
         </Sec>
@@ -213,7 +241,7 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
     return (
       <>
         <Sec title="2 CORE KEY-CLAIMS"><ol>{i.keyClaims.map((c, k) => <li key={k}><b>{c.claim}</b><div className="small muted">{c.support}</div></li>)}</ol></Sec>
-        <Sec title="MIN'S 3 KSF"><ol>{i.ksf.map((c, k) => <li key={k}>{c.factor} <span className="small muted">({c.measure})</span></li>)}</ol></Sec>
+        <Sec title="3 KEY SUCCESS FACTORS"><ol>{i.ksf.map((c, k) => <li key={k}>{c.factor} <span className="small muted">({c.measure})</span></li>)}</ol></Sec>
         <Sec title="4 SUPER STRATEGIES"><ol>{i.superStrategies.map((c, k) => <li key={k}>{c.name} <span className="tag">{c.methods}</span></li>)}</ol></Sec>
         <JudgmentView j={i.judgment} />
       </>
@@ -234,7 +262,7 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
           <p><b>시장</b> {c.macro.market}</p>
           <p><b>통합</b> {c.macro.integration}</p>
         </Sec>
-        {c.bigIssue && <Sec title="📣 직권 지시"><p>{c.directive}</p></Sec>}
+        {c.bigIssue && <Sec title="직권 지시"><p>{c.directive}</p></Sec>}
         <JudgmentView j={c.judgment} />
       </>
     )
@@ -300,7 +328,7 @@ export default function Inspector({ live, selected }: { live: LiveState; selecte
         <div className="eyebrow">INSPECTOR</div>
         <h3>{title}</h3>
       </div>
-      <div className="ins-body">{r ? <Body id={id} r={r} /> : <p className="muted">공정의 스테이션을 클릭하면 각 담당의 계약·보고·검수 내역을 볼 수 있습니다.</p>}</div>
+      <div className="ins-body">{live.nodes[id]?.status === 'skipped' ? <Sec title="MPM이 이 단계를 생략했습니다"><p>{live.nodes[id]?.detail?.replace(/^생략 · /, '')}</p></Sec> : r ? <Body id={id} r={r} /> : <p className="muted">공정의 스테이션을 클릭하면 각 담당의 계약·보고·검수 내역을 볼 수 있습니다.</p>}</div>
       <div className="ins-log">
         <div className="log-head">
           <span>공정 로그</span>

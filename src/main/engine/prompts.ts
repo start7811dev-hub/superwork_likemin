@@ -2,7 +2,7 @@
  * 단계별 역할 지시문. 공통 두뇌(정체성·교리)는 시스템 프롬프트 앞부분에 캐시되어 있고,
  * 여기서는 각 단계가 "무엇을 책임지고, 무엇을 판단하며, 무엇을 건드리지 말아야 하는지"만 정의한다.
  */
-import type { AuditResult, CloneReview, ContextCanvas, DispatchPlan, Factbook, Insight, Review, Simulation, Synthesis, TaskSpec, WorkerReport } from '../../shared/schemas'
+import { METHODS, type AuditResult, type CloneReview, type ContextCanvas, type DispatchPlan, type Factbook, type Insight, type Method, type Review, type Simulation, type Synthesis, type TaskSpec, type WorkerReport } from '../../shared/schemas'
 import type { RoleDef, TaskRun } from '../../shared/types'
 
 const j = (v: unknown) => JSON.stringify(v, null, 2)
@@ -16,6 +16,8 @@ export const ROLE = {
 경계: 해결책을 제안하지 않는다. 정보가 없는 부분은 지어내지 말고 가정(위험도·검증 방법 포함)이나 확인 질문으로 남긴다.
 MIN 체크표(왜 하는가·비용·가치·경쟁·관성·빼기·첫인상/반복)를 캔버스의 why/cost/competition에 반영한다.
 의도 파악(doctrine §0.5 의도 파악 원칙): 의도가 파악되면 intent.clear=true로 하고 질문하지 않는다 — "이렇게 이해했는데 맞나요?"식 확인 금지. 요청이 너무 부족해 의도가 정말 파악되지 않을 때만 clear=false로 하고 의도를 묻는 질문 1~3개를 만든다. 질문자가 개념을 이해하지 못할 수 있음을 전제하고, 질문마다 일상적인 비유(analogy)를 붙인다. 예산·일정 같은 의도 외의 빈칸은 묻지 말고 assumptions로 처리한다.
+공정 설계(doctrine §0.10): process에 이 일의 규모와 구성을 E2E 관점에서 설계한다. 이미 주어진 전략·정의는 givenContext에 두고 다시 도출하지 않는다. Factbook은 외부 사실이 판단을 바꿀 때만(full/light), SUPER INSIGHT 방법론은 과제에 맞는 것만 고른다(aarrr·tows·stp·cdj·jtbd·unit·competition). 시뮬레이션·고도화·클론은 결과의 질을 실제로 바꿀 때만 켠다. 보수적으로 줄이지 말 것 — 줄여서 결과가 나빠지면 줄이지 않는다. 단계마다 이유를 쓴다.
+initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이후 분석이 이를 검증·수정한다.
 판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
 
   dispatch: `[현재 역할: MPM — 업무 분장]
@@ -68,15 +70,18 @@ ${role.name} 관점에서 특히 깊게 보되, 범위를 좁히지 않는다.
 경계: 5~7개 페르소나. 각 예측에 메커니즘과 '틀렸음을 알려 줄 관찰 신호'를 반드시 단다. 고정관념에 기대지 말고 상황이 행동을 만드는 구조를 설명한다.`,
 
   insight: `[현재 역할: MPM — SUPER INSIGHT (대안을 내기 전에 찍고 가는 단계)]
-책임: 검수를 통과한 인사이트·Factbook·시뮬레이션을 네 가지 방법론으로 분석하고, MIN'S 4-3-2 THINKING을 확정한다.
-방법론:
-1) AARRR(퍼널): 획득→활성화→유지→매출→추천 5단계 모두. 단계별 현재 상태·이탈 구간·개선 레버·건강도(1~5). 데이터 기반 그로스해킹 관점.
-2) TOWS: SWOT을 나열로 끝내지 말고 SO/ST/WO/WT 교차로 즉시 실행 가능한 전략을 도출.
-3) STP 2.0(초개인화): 인구통계가 아니라 행동 패턴·취향 중심 세분화 → 타깃 → 포지셔닝 맵(두 축과 우리·경쟁 위치, -5~5).
-4) CDJ(고객 여정): 인지→고려→구매→옹호 4단계 모두. 온·오프라인 터치포인트, 감정(-2~2), 페인, 기회.
+책임: 맥락 캔버스의 핵심 주장 가설(initialClaims)을 출발점으로, 지정된 방법론으로 검증·수정한 뒤 MIN'S 4-3-2 THINKING을 확정한다. 가설이 틀렸으면 과감히 바꾼다.
+방법론 정의 (지정된 것만 채우고, 지정되지 않은 항목은 빈 배열·빈 문자열·0으로 둔다):
+- AARRR: 획득→활성화→유지→매출→추천 5단계. 단계별 현재·이탈 구간·개선 레버·건강도(1~5).
+- TOWS: SWOT을 나열로 끝내지 말고 SO/ST/WO/WT 교차로 즉시 실행할 전략을 도출.
+- STP 2.0: 인구통계가 아니라 행동 패턴·취향 중심 세분화 → 타깃 → 포지셔닝 맵(두 축, -5~5). 실제 행동 데이터가 없으면 세그먼트 규모는 "확인 필요".
+- CDJ: 인지→고려→구매→옹호 4단계. 온·오프라인 터치포인트, 감정(-2~2), 페인, 기회.
+- JTBD: 고객이 '고용'하는 일을 When/I want to/So I can으로. 기능·감정·사회적 일, 지금 고용 중인 해법, 그 해법을 해고하게 만드는 순간, 중요도·만족도(1~10).
+- 유닛 이코노믹스: ARPU, 마진율, 월 이탈률, CAC → LTV(=ARPU×마진율÷이탈률), LTV/CAC, 회수 기간(=CAC÷(ARPU×마진율)). 모든 가정에 근거와 검증 여부를 붙이고, 근거 없는 숫자는 verified=false·basis="확인 필요". 민감도(어떤 변수가 판단을 뒤집는가)를 쓴다.
+- 경쟁 구도: 직접 경쟁·간접 경쟁·대체재를 모두 본다. 강도와 우리에 대한 위협(1~5), 구도를 바꾸는 힘, 비어 있는 자리(차별을 위한 차별이 아닌 의미 있는 차이).
 그다음 MIN'S 4-3-2 THINKING:
-- 4 SUPER STRATEGIES: 네 방법론의 교차점에서 나온 전략 정확히 4개 (각각 근거 방법론 조합 명시)
-- MIN'S 3 KEY SUCCESS FACTORS: 성패를 가르는 요인 정확히 3개 (측정 지표 포함)
+- 4 SUPER STRATEGIES: 정확히 4개. methods에 근거가 된 방법론의 구체적 칸을 적는다(예: TOWS-SO#1 + JTBD#2). 근거가 약해 채우기용에 가까우면 strength="weak"로 솔직히 표시한다.
+- 3 KEY SUCCESS FACTORS: 성패를 가르는 요인 정확히 3개 (측정 지표 포함)
 - 2 CORE KEY-CLAIMS: 이 프로젝트 전체를 관통하는 핵심 주장 정확히 2개 — 이후 모든 대안은 이 두 주장 위에 선다
 경계: Factbook에 없는 수치는 확정하지 않는다. MIN 체크표(왜·비용·가치·경쟁·관성·빼기·첫인상/반복)를 분석에 녹인다.
 ${JUDGE_TEXT}`,
@@ -156,17 +161,26 @@ export function simulateUser(canvas: ContextCanvas, tasks: TaskRun[]): string {
   return `<context_canvas>\n${j(canvas)}\n</context_canvas>\n\n<audited_insights>\n${insightsDigest(tasks)}\n</audited_insights>`
 }
 
-export function insightUser(canvas: ContextCanvas, tasks: TaskRun[], sim: Simulation, factbook?: Factbook): string {
-  return `<context_canvas>\n${j(canvas)}\n</context_canvas>\n\n${factbookDigest(factbook)}<audited_insights>\n${insightsDigest(tasks, true)}\n</audited_insights>\n\n<simulation>\n${j(sim)}\n</simulation>\n\nSUPER INSIGHT를 도출하라.`
+const simBlock = (sim?: Simulation) => (sim ? `<simulation>\n${j(sim)}\n</simulation>\n\n` : '')
+
+export function insightUser(canvas: ContextCanvas, tasks: TaskRun[], methods: Method[], sim?: Simulation, factbook?: Factbook): string {
+  return `<context_canvas>\n${j(canvas)}\n</context_canvas>\n\n${factbookDigest(factbook)}<audited_insights>\n${insightsDigest(tasks, true)}\n</audited_insights>\n\n${simBlock(sim)}<methods>\n이번 과제에 쓸 방법론: ${methods.map((m) => `${m}(${METHODS[m]})`).join(', ')}\n그 외 방법론 항목은 비워 둔다.\n</methods>\n\nSUPER INSIGHT를 도출하라.`
 }
 
 function insightDigest(i?: Insight): string {
   if (!i) return ''
-  return `<super_insight>\n4 SUPER STRATEGIES:\n${i.superStrategies.map((s, k) => `${k + 1}. ${s.name} (${s.methods}) — ${s.description}`).join('\n')}\n3 KSF:\n${i.ksf.map((s, k) => `${k + 1}. ${s.factor} — ${s.why} [지표: ${s.measure}]`).join('\n')}\n2 CORE KEY-CLAIMS:\n${i.keyClaims.map((s, k) => `${k + 1}. ${s.claim} — ${s.support}`).join('\n')}\n타깃: ${i.stp.target.segment} — ${i.stp.target.why}\n포지셔닝: ${i.stp.positioning.statement}\n</super_insight>\n\n`
+  const extra = [
+    i.stp.target.segment && `타깃: ${i.stp.target.segment} — ${i.stp.target.why}`,
+    i.stp.positioning.statement && `포지셔닝: ${i.stp.positioning.statement}`,
+    i.jtbd.length > 0 && `핵심 JTBD: ${[...i.jtbd].sort((a, b) => b.importance - b.satisfaction - (a.importance - a.satisfaction))[0].motivation}`,
+    i.unit.ltvToCac > 0 && `유닛 이코노믹스: LTV/CAC ${i.unit.ltvToCac.toFixed(1)}, 회수 ${i.unit.paybackMonths.toFixed(1)}개월 — ${i.unit.verdict}`,
+    i.competition.whitespace && `비어 있는 자리: ${i.competition.whitespace}`
+  ].filter(Boolean)
+  return `<super_insight>\n4 SUPER STRATEGIES:\n${i.superStrategies.map((s, k) => `${k + 1}. ${s.name} [${s.strength}] (${s.methods}) — ${s.description}`).join('\n')}\n3 KSF:\n${i.ksf.map((s, k) => `${k + 1}. ${s.factor} — ${s.why} [지표: ${s.measure}]`).join('\n')}\n2 CORE KEY-CLAIMS:\n${i.keyClaims.map((s, k) => `${k + 1}. ${s.claim} — ${s.support}`).join('\n')}\n${extra.join('\n')}\n</super_insight>\n\n`
 }
 
-export function synthesizeUser(canvas: ContextCanvas, plan: DispatchPlan, tasks: TaskRun[], sim: Simulation, qa?: QA[], factbook?: Factbook, insight?: Insight): string {
-  return `${qaBlock(qa).trim()}\n\n<context_canvas>\n${j(canvas)}\n</context_canvas>\n\n<dispatch_rationale>\n${plan.rationale}\n</dispatch_rationale>\n\n${insightDigest(insight)}${factbookDigest(factbook)}<audited_insights>\n${insightsDigest(tasks, true)}\n</audited_insights>\n\n<simulation>\n${j(sim)}\n</simulation>\n\n최소 3개의 대안으로 종합하라.`
+export function synthesizeUser(canvas: ContextCanvas, plan: DispatchPlan, tasks: TaskRun[], sim?: Simulation, qa?: QA[], factbook?: Factbook, insight?: Insight): string {
+  return `${qaBlock(qa).trim()}\n\n<context_canvas>\n${j(canvas)}\n</context_canvas>\n\n<dispatch_rationale>\n${plan.rationale}\n</dispatch_rationale>\n\n${insightDigest(insight)}${factbookDigest(factbook)}<audited_insights>\n${insightsDigest(tasks, true)}\n</audited_insights>\n\n${simBlock(sim)}최소 3개의 대안으로 종합하라.`
 }
 
 /** 검증용 공통 컨텍스트 */

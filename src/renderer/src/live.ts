@@ -94,6 +94,16 @@ export function fromRecord(r: RunRecord): LiveState {
   if (v?.refine) nodes.refine = done(v.refine.verdict === 'improve' ? `고도화 ${v.refine.issues.length}건` : '유지')
   if (v?.clone) nodes.clone = done(v.clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
   if (r.status === 'done') nodes.deliver = done(`최종 · ${v?.versions.length ?? 1}번 다듬음`)
+  // MPM이 공정 설계에서 생략한 단계
+  const pr = r.canvas?.process
+  if (pr) {
+    const sk = (id: string, reason: string) => (nodes[id] = { status: 'skipped', detail: `생략 · ${reason}` })
+    if (pr.factbook.mode === 'skip') sk('factbook', pr.factbook.reason)
+    if (!pr.simulate.run) sk('simulate', pr.simulate.reason)
+    if (!pr.methods.length) sk('insight', pr.methodsReason)
+    if (!pr.refine.run) sk('refine', pr.refine.reason)
+    if (!pr.clone.run) sk('clone', pr.clone.reason)
+  }
   if (r.status === 'error') {
     const failing = !r.canvas ? 'intake' : !r.plan ? 'dispatch' : !r.simulation ? 'audit' : !r.insight ? 'insight' : !r.synthesis ? 'synthesize' : !v?.review ? 'review' : !v?.refine ? 'refine' : 'clone'
     nodes[failing] = { status: 'error', detail: '오류' }

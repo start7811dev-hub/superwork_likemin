@@ -93,8 +93,8 @@ export function Pyramid432({ insight, compact = false }: { insight: Insight; com
   )
   const cols = (
     <div className="p432">
-      <div><h5>4 SUPER STRATEGIES</h5><ol>{insight.superStrategies.map((s, i) => <li key={i}><b>{s.name}</b> <span className="tag">{s.methods}</span><div className="small">{s.description}</div></li>)}</ol></div>
-      <div><h5>MIN'S 3 KEY SUCCESS FACTORS</h5><ol>{insight.ksf.map((k, i) => <li key={i}><b>{k.factor}</b><div className="small">{k.why}</div><div className="small muted">지표: {k.measure}</div></li>)}</ol></div>
+      <div><h5>4 SUPER STRATEGIES</h5><ol>{insight.superStrategies.map((s, i) => <li key={i}><b>{s.name}</b> <span className={`tag ${s.strength === 'strong' ? 'ok' : s.strength === 'weak' ? 'r-high' : 'r-medium'}`}>{s.strength === 'strong' ? '근거 강함' : s.strength === 'weak' ? '근거 약함' : '근거 보통'}</span><div className="small">{s.description}</div><div className="small muted mono">{s.methods}</div></li>)}</ol></div>
+      <div><h5>3 KEY SUCCESS FACTORS</h5><ol>{insight.ksf.map((k, i) => <li key={i}><b>{k.factor}</b><div className="small">{k.why}</div><div className="small muted">지표: {k.measure}</div></li>)}</ol></div>
       <div className="claims"><h5>2 CORE KEY-CLAIMS</h5><ol>{insight.keyClaims.map((c, i) => <li key={i}><b>“{c.claim}”</b><div className="small">{c.support}</div></li>)}</ol></div>
     </div>
   )
@@ -303,18 +303,170 @@ function Cdj({ insight }: { insight: Insight }) {
   )
 }
 
+/* ---------- JTBD: 기회 지형 (중요도 × 불만족) ---------- */
+function Jtbd({ insight }: { insight: Insight }) {
+  const jobs = insight.jtbd.map((j, i) => {
+    const opp = j.importance + Math.max(0, j.importance - j.satisfaction) // Ulwick 기회 점수
+    return { ...j, i, opp, gx: (j.importance - 5.5) * 0.6, gy: (j.satisfaction - 5.5) * 0.6 }
+  })
+  const TYPE: Record<string, { c: string; k: string }> = { functional: { c: '#6aa8ff', k: '기능' }, emotional: { c: PINK, k: '감정' }, social: { c: LIME, k: '사회' } }
+  const corners: Pt[] = [iso(-3, -3), iso(3, -3), iso(3, 3), iso(-3, 3)]
+  const bounds = [...corners, iso(-3, -3, 110), iso(3.8, 0), iso(0, 3.8), ...jobs.map((j) => iso(j.gx, j.gy, j.opp * 4.5 + 40 + jobs.length * 30))]
+  const svg = (
+    <>
+      <polygon points={pts(corners)} fill="#ffffff" stroke="#e6e8ee" strokeWidth={10} strokeLinejoin="round" />
+      {/* 기회 영역: 중요도 높고 만족도 낮은 모서리 */}
+      <polygon points={pts([iso(0.5, -3), iso(3, -3), iso(3, -0.5), iso(0.5, -0.5)])} fill="none" stroke={INK} strokeDasharray="4 4" strokeWidth={1} />
+      <text x={iso(2.9, -3.2)[0]} y={iso(2.9, -3.2)[1] - 4} fontSize={10} fontWeight={700} fill={INK} textAnchor="middle">기회 영역</text>
+      <text x={iso(3.5, 0)[0]} y={iso(3.5, 0)[1] + 6} fontSize={10} fill={INK}>중요도 →</text>
+      <text x={iso(0, 3.5)[0] - 8} y={iso(0, 3.5)[1] + 14} fontSize={10} fill="#7a8090" textAnchor="end">← 만족도 낮음</text>
+      {[...jobs].sort((a, b) => a.gx + a.gy - (b.gx + b.gy)).map((j) => {
+        const h = j.opp * 4.5
+        const top = iso(j.gx, j.gy, h)
+        return (
+          <g key={j.i}>
+            <Block gx={j.gx} gy={j.gy} w={0.45} d={0.45} h={h} color={TYPE[j.type]?.c ?? '#cfd3dc'} r={5} />
+          </g>
+        )
+      })}
+      {/* 라벨은 블록 위에, 겹치지 않게 세로로 엇갈려 배치 */}
+      {[...jobs].sort((a, b) => b.opp - a.opp).map((j, k) => {
+        const top = iso(j.gx, j.gy, j.opp * 4.5)
+        const lift = 8 + k * 30
+        return (
+          <g key={`l${j.i}`}>
+            <line x1={top[0]} y1={top[1]} x2={top[0]} y2={top[1] - lift} stroke="#c9ccd3" strokeDasharray="2 3" />
+            <Label at={[top[0], top[1] - lift]} title={`J${j.i + 1} · ${TYPE[j.type]?.k ?? ''}`} sub={`기회 ${j.opp.toFixed(0)}`} w={84} />
+          </g>
+        )
+      })}
+    </>
+  )
+  return (
+    <Diagram id="jtbd" title="JTBD · 기회 지형" subtitle="고객이 고용하는 일 · 높이 = 기회 점수(중요도 + 불만족)" viewBox={viewBoxOf(bounds)} svg={svg}>
+      <table className="cmp viz-table">
+        <thead><tr><th>#</th><th>When … I want to … so I can …</th><th>지금 고용 중</th><th>해고 계기</th><th>중요/만족</th></tr></thead>
+        <tbody>
+          {jobs.map((j) => (
+            <tr key={j.i}>
+              <td><b>J{j.i + 1}</b></td>
+              <td>{j.situation}, <b>{j.motivation}</b> — {j.outcome}</td>
+              <td>{j.currentSolution}</td>
+              <td className="leak">{j.firingTrigger}</td>
+              <td className="num">{j.importance}/{j.satisfaction}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Diagram>
+  )
+}
+
+/* ---------- 유닛 이코노믹스 ---------- */
+function Unit({ insight }: { insight: Insight }) {
+  const u = insight.unit
+  const fmt = (n: number) => `${u.currency === 'KRW' ? '₩' : u.currency === 'USD' ? '$' : ''}${Math.round(n).toLocaleString()}`
+  const max = Math.max(u.ltv, u.cac, 1)
+  const bars = [
+    { k: 'LTV', v: u.ltv, gx: 0, c: LIME },
+    { k: 'CAC', v: u.cac, gx: 1.8, c: PINK }
+  ]
+  const bounds = [iso(-1, -1, 150), iso(2.8, 1), iso(-1, 1), iso(2.8, -1, 150)]
+  const svg = (
+    <>
+      {bars.map((b) => {
+        const h = Math.max(6, (b.v / max) * 120)
+        const top = iso(b.gx, 0, h)
+        return (
+          <g key={b.k}>
+            <Block gx={b.gx} gy={0} w={1.2} d={1.2} h={h} color={b.c} r={8} />
+            <Label at={[top[0], top[1] - 10]} title={b.k} sub={fmt(b.v)} tone={b.k === 'LTV' ? 'ink' : 'white'} w={100} />
+          </g>
+        )
+      })}
+    </>
+  )
+  const ok = u.ltvToCac >= 3
+  return (
+    <Diagram id="unit-economics" title="유닛 이코노믹스" subtitle="LTV = ARPU × 마진율 ÷ 월 이탈률" viewBox={viewBoxOf(bounds)} svg={svg}>
+      <div className="unit-kpis">
+        <div><span className="eyebrow">LTV / CAC</span><b className={ok ? '' : 'warn'}>{u.ltvToCac.toFixed(1)}×</b><span className="small muted">3× 이상이 건강</span></div>
+        <div><span className="eyebrow">회수 기간</span><b>{u.paybackMonths.toFixed(1)}개월</b></div>
+        <div><span className="eyebrow">ARPU</span><b>{fmt(u.arpu)}</b></div>
+        <div><span className="eyebrow">마진율 · 월 이탈</span><b>{u.grossMarginPct}% · {u.monthlyChurnPct}%</b></div>
+      </div>
+      <p className="unit-verdict">{u.verdict}</p>
+      <table className="cmp viz-table">
+        <thead><tr><th>가정</th><th>값</th><th>근거</th><th>검증</th></tr></thead>
+        <tbody>{u.assumptions.map((a, i) => <tr key={i}><td>{a.name}</td><td className="num">{a.value.toLocaleString()} {a.unit}</td><td>{a.basis}</td><td>{a.verified ? <span className="tag ok">확인</span> : <span className="tag r-high">확인 필요</span>}</td></tr>)}</tbody>
+      </table>
+      {u.sensitivity.length > 0 && (
+        <table className="cmp viz-table">
+          <thead><tr><th>민감도 변수</th><th>변화</th><th>영향</th></tr></thead>
+          <tbody>{u.sensitivity.map((x, i) => <tr key={i}><td>{x.variable}</td><td>{x.change}</td><td>{x.effect}</td></tr>)}</tbody>
+        </table>
+      )}
+    </Diagram>
+  )
+}
+
+/* ---------- 경쟁 구도 ---------- */
+function Competition({ insight }: { insight: Insight }) {
+  const c = insight.competition
+  const ROWS: { kind: 'direct' | 'indirect' | 'substitute'; label: string; gy: number }[] = [
+    { kind: 'substitute', label: '대체재', gy: -2.2 },
+    { kind: 'indirect', label: '간접 경쟁', gy: 0 },
+    { kind: 'direct', label: '직접 경쟁', gy: 2.2 }
+  ]
+  const items = ROWS.flatMap((r) => c.players.filter((p) => p.kind === r.kind).map((p, i) => ({ ...p, gx: i * 1.9, gy: r.gy })))
+  const maxX = Math.max(2, ...items.map((i) => i.gx))
+  const bounds = [...items.flatMap((i) => [iso(i.gx - 1, i.gy - 1, 90), iso(i.gx + 1, i.gy + 1)]), iso(-1.8, -3.2), iso(maxX + 3.2, 0), iso(maxX + 3.2, 2.2), iso(-1.8, 3.2)]
+  const svg = (
+    <>
+      {ROWS.map((r) => (
+        <g key={r.kind}>
+          <polygon points={pts([iso(-1.6, r.gy - 0.9), iso(maxX + 1.1, r.gy - 0.9), iso(maxX + 1.1, r.gy + 0.9), iso(-1.6, r.gy + 0.9)])} fill="#ffffff" stroke="#e6e8ee" strokeWidth={6} strokeLinejoin="round" />
+        </g>
+      ))}
+      {[...items].sort((a, b) => a.gx + a.gy - (b.gx + b.gy)).map((p, i) => {
+        const h = 8 + p.threat * 12
+        const top = iso(p.gx, p.gy, h)
+        return (
+          <g key={i}>
+            <Block gx={p.gx} gy={p.gy} w={0.4 + p.strength * 0.15} d={0.4 + p.strength * 0.15} h={h} color={p.threat >= 4 ? '#ff9fb8' : p.threat >= 3 ? '#ffd38a' : '#cfd3dc'} r={6} />
+            <Label at={[top[0], top[1] - 6]} title={cut(p.name, 9)} sub={`위협 ${p.threat} · 강도 ${p.strength}`} w={96} />
+          </g>
+        )
+      })}
+      {ROWS.map((r) => {
+        const [x, y] = iso(maxX + 1.5, r.gy)
+        return <text key={`rl-${r.kind}`} x={x + 6} y={y + 14} fontSize={11} fontWeight={700} fill={INK}>{r.label}</text>
+      })}
+    </>
+  )
+  return (
+    <Diagram id="competition" title="경쟁 구도" subtitle="직접 경쟁 · 간접 경쟁 · 대체재 · 높이 = 우리에 대한 위협" viewBox={viewBoxOf(bounds)} svg={svg}>
+      <div className="kv"><span className="kv-k">빈자리</span><b>{c.whitespace}</b></div>
+      {c.dynamics.length > 0 && <div className="kv"><span className="kv-k">구도 변화</span><span>{c.dynamics.join(' · ')}</span></div>}
+    </Diagram>
+  )
+}
+
 export default function StrategyViz({ insight }: { insight: Insight }) {
   return (
     <div className="strategy">
       <Pyramid432 insight={insight} />
       <div className="viz-judgment small">
-        <b>⚙️ 판단 엔진</b> {insight.judgment.decision}
+        <span className="eyebrow">판단 엔진</span> <b> {insight.judgment.decision}</b>
         <span className="muted"> — {insight.judgment.basis.map((b) => b.source).join(', ')}</span>
       </div>
-      <Aarrr insight={insight} />
-      <Tows insight={insight} />
-      <Stp insight={insight} />
-      <Cdj insight={insight} />
+      {insight.jtbd.length > 0 && <Jtbd insight={insight} />}
+      {insight.aarrr.length > 0 && <Aarrr insight={insight} />}
+      {(insight.tows.so.length > 0 || insight.tows.wo.length > 0) && <Tows insight={insight} />}
+      {insight.stp.segments.length > 0 && <Stp insight={insight} />}
+      {insight.cdj.length > 0 && <Cdj insight={insight} />}
+      {insight.unit.assumptions.length > 0 && <Unit insight={insight} />}
+      {insight.competition.players.length > 0 && <Competition insight={insight} />}
     </div>
   )
 }

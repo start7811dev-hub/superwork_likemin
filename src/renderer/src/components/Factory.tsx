@@ -51,7 +51,8 @@ const STATUS_COLOR: Record<NodeStatus, string> = {
   waiting: '#4f6bed',
   done: '#3fc46a',
   rework: '#ff5a4e',
-  error: '#ff5a4e'
+  error: '#ff5a4e',
+  skipped: '#d4d6dc'
 }
 const STATUS_LABEL: Record<NodeStatus, string> = {
   idle: '대기',
@@ -60,7 +61,8 @@ const STATUS_LABEL: Record<NodeStatus, string> = {
   waiting: '질문 대기',
   done: '완료',
   rework: '반려됨',
-  error: '오류'
+  error: '오류',
+  skipped: '생략'
 }
 
 /* ---------- 위트 대사 ---------- */
@@ -831,13 +833,13 @@ export default function Factory({ live, selected, onSelect }: { live: LiveState;
 
       {/* 파이프라인 */}
       {pipes.map((p) => (
-        <Pipe key={p.key} path={p.path} color={p.color} active={status(p.to) === 'running' || (status(p.from) === 'running' && p.from !== 'audit')} />
+        <Pipe key={p.key} path={p.path} color={status(p.to) === 'skipped' ? '#c9ccd3' : p.color} active={status(p.to) === 'running' || (status(p.from) === 'running' && p.from !== 'audit')} />
       ))}
 
       {/* 스테이션 */}
       {sorted.map((s) => (
         <g key={s.id} className="station" onClick={() => s.kind !== 'ghost' && select(s.id)}>
-          {status(s.id) !== 'idle' && s.kind !== 'ghost' && (
+          {status(s.id) !== 'idle' && status(s.id) !== 'skipped' && s.kind !== 'ghost' && (
             <polygon
               className={status(s.id) === 'running' || status(s.id) === 'waiting' ? 'ring-run' : undefined}
               points={pts([iso(s.gx - 1.0, s.gy - 1.0, 8.5), iso(s.gx + 1.0, s.gy - 1.0, 8.5), iso(s.gx + 1.0, s.gy + 1.0, 8.5), iso(s.gx - 1.0, s.gy + 1.0, 8.5)])}
@@ -848,7 +850,7 @@ export default function Factory({ live, selected, onSelect }: { live: LiveState;
               opacity={0.75}
             />
           )}
-          <g transform="translate(0,-8)">
+          <g transform="translate(0,-8)" opacity={status(s.id) === 'skipped' ? 0.32 : 1}>
             <Prop s={s} status={status(s.id)} tick={tick} />
           </g>
         </g>

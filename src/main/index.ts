@@ -158,14 +158,14 @@ async function devCapture(dir: string): Promise<void> {
   await click('SUPER INSIGHT', '.doc-tabs button')
   await wait(1000)
   await shot('9-insight')
-  for (const [i, name] of [[1, '10-aarrr'], [2, '11-tows'], [3, '12-stp'], [4, '13-cdj']] as const) {
-    await scrollTo(`.strategy > .viz:nth-of-type(${i + 1})`)
+  for (const [i, name] of [[2, '10-jtbd'], [3, '11-aarrr'], [4, '12-tows'], [5, '13-stp'], [6, '14-unit'], [7, '15-competition']] as const) {
+    await scrollTo(`.strategy > .viz:nth-of-type(${i})`)
     await wait(600)
     await shot(name)
   }
   await click('Factbook', '.doc-tabs button')
   await wait(800)
-  await shot('14-factbook')
+  await shot('16-factbook')
   app.quit()
 }
 

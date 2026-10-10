@@ -22,12 +22,17 @@ import {
   InsightSchema,
   ReviewSchema,
   type Factbook,
+  type Method,
+  type ProcessPlan,
   type Synthesis,
   DispatchPlanSchema,
   SimulationSchema,
   SynthesisSchema,
   WorkerReportSchema,
-  type TaskSpec
+  type TaskSpec,
+  type Insight,
+  type Simulation,
+  METHODS
 } from '../../shared/schemas'
 import {
   DEPTH_EFFORT,
@@ -204,6 +209,32 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     }
     run.title = canvas.title
     log('intake', `실제 문제: ${canvas.reframe.realProblem}`)
+
+    /* ---- 1.6 공정 설계: MPM이 E2E 관점에서 규모·구성을 정한다 (doctrine §0.10) ---- */
+    const ALL_METHODS: Method[] = ['aarrr', 'tows', 'stp', 'cdj', 'jtbd', 'unit', 'competition']
+    const proc: ProcessPlan =
+      settings.processMode === 'full'
+        ? {
+            ...canvas.process,
+            scale: 'full',
+            maxTasks: MAX_TASKS,
+            factbook: { mode: 'full', reason: '설정: 항상 전체 공정' },
+            simulate: { run: true, reason: '설정: 항상 전체 공정' },
+            methods: ALL_METHODS,
+            refine: { run: true, reason: '설정: 항상 전체 공정' },
+            clone: { run: true, reason: '설정: 항상 전체 공정' }
+          }
+        : canvas.process
+    proc.methods = [...new Set(proc.methods)].filter((m) => ALL_METHODS.includes(m))
+    canvas.process = proc
+    const skip = (nodeId: string, reason: string) => {
+      node(nodeId, 'skipped', `생략 · ${reason}`)
+      log(nodeId, `생략: ${reason}`)
+    }
+    log(
+      'intake',
+      `공정 설계(${proc.scale}): 담당 ${proc.maxTasks}명 · Factbook ${proc.factbook.mode} · 방법론 ${proc.methods.length ? proc.methods.join('/') : '없음'} · 시뮬레이션 ${proc.simulate.run ? 'O' : 'X'} · 고도화 ${proc.refine.run ? 'O' : 'X'} · 클론 ${proc.clone.run ? 'O' : 'X'} — ${proc.rationale}`
+    )
     node('intake', 'done', canvas.title)
     persist()
 
@@ -213,18 +244,18 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     const plan = await engine.structured({
       model: models.mpm,
       system: system(P.ROLE.dispatch),
-      user: P.dispatchUser(canvas, brain.roles, MAX_TASKS),
+      user: P.dispatchUser(canvas, brain.roles, Math.min(MAX_TASKS, Math.max(1, Math.round(proc.maxTasks) || 1))),
       effort: effort.mpm,
       signal,
       schema: DispatchPlanSchema,
       validate: (p) => {
-        if (!p.tasks.length) return '작업이 하나도 없다. 최소 3개 작업으로 분장하라.'
+        if (!p.tasks.length) return '작업이 하나도 없다. 최소 1개 이상 분장하라.'
         const bad = p.tasks.filter((t) => !roles.has(t.roleId)).map((t) => t.roleId)
         return bad.length ? `roster에 없는 역할 id: ${bad.join(', ')}. roster의 id만 사용하라.` : null
       }
     })
     const seen = new Set<string>()
-    plan.tasks = plan.tasks.slice(0, MAX_TASKS).map((t, i) => {
+    plan.tasks = plan.tasks.slice(0, Math.min(MAX_TASKS, Math.max(1, Math.round(proc.maxTasks) || 1))).map((t, i) => {
       const id = seen.has(t.id) || !/^[\w-]+$/.test(t.id) ? `t${i + 1}` : t.id
       seen.add(id)
       return { ...t, id }
@@ -252,9 +283,13 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       const model = tr.model ?? models.worker
       packet('dispatch', nodeId, 'task')
 
-      // 3-a. 업무와 별개로, 언제나 Factbook 전방위 조사
-      node(nodeId, 'running', 'Factbook 조사 중')
-      try {
+      // 3-a. 업무와 별개로 Factbook 조사 — MPM의 공정 설계에 따라 full / light / skip
+      const researchRoles = plan.tasks.filter((t) => roles.get(t.roleId)?.research)
+      const doFactbook =
+        proc.factbook.mode === 'full' ||
+        (proc.factbook.mode === 'light' && (researchRoles.length ? role.research : task.id === plan.tasks[0].id))
+      if (doFactbook) node(nodeId, 'running', 'Factbook 조사 중')
+      if (doFactbook) try {
         const notes = await engine.research(
           {
             model: models.worker,
@@ -331,7 +366,9 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
 
     /* ---- 4. FACTBOOK 통합 ---- */
     const books = plan.tasks.filter((t) => run.tasks[t.id].factbook).map((t) => ({ from: t.title, book: run.tasks[t.id].factbook as Factbook }))
-    if (books.length) {
+    if (proc.factbook.mode === 'skip') {
+      skip('factbook', proc.factbook.reason)
+    } else if (books.length) {
       node('factbook', 'running', `${books.length}권 통합 중`)
       run.factbook =
         books.length === 1
@@ -355,8 +392,12 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     /* ---- 5. SIMULATE ---- */
     const taskRuns = plan.tasks.map((t) => run.tasks[t.id])
     packet('factbook', 'simulate', 'fact')
+    let simulation: Simulation | undefined
+    if (!proc.simulate.run) {
+      skip('simulate', proc.simulate.reason)
+    } else {
     node('simulate', 'running', '엣지 타깃 행동 예측 중')
-    const simulation = await engine.structured({
+    simulation = await engine.structured({
       model: models.worker,
       system: system(P.ROLE.simulate),
       user: P.simulateUser(canvas, taskRuns),
@@ -368,22 +409,33 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     log('simulate', `페르소나 ${simulation.personas.length}명, 엣지 케이스 ${simulation.edgeCases.length}건 시뮬레이션`)
     node('simulate', 'done', `페르소나 ${simulation.personas.length}`)
     persist()
+    }
 
     /* ---- 6. SUPER INSIGHT: 대안을 내기 전에 4-3-2를 찍고 간다 ---- */
     packet('simulate', 'insight', 'insight')
-    node('insight', 'running', 'AARRR · TOWS · STP · CDJ 분석 중')
-    const insight = await engine.structured({
+    let insight: Insight | undefined
+    if (!proc.methods.length) {
+      skip('insight', proc.methodsReason || '방법론 분석이 결과를 바꾸지 않는 과제')
+    } else {
+    const has = (m: Method) => proc.methods.includes(m)
+    node('insight', 'running', `${proc.methods.map((m) => METHODS[m]).join(' · ')} 분석 중`)
+    insight = await engine.structured({
       model: models.mpm,
       system: system(P.ROLE.insight),
-      user: P.insightUser(canvas, taskRuns, simulation, run.factbook),
+      user: P.insightUser(canvas, taskRuns, proc.methods, simulation, run.factbook),
       effort: effort.mpm,
       signal,
       maxTokens: 48000,
       schema: InsightSchema,
       validate: (i) => {
         const bad: string[] = []
-        if (i.aarrr.length !== 5) bad.push(`AARRR는 5단계여야 한다 (현재 ${i.aarrr.length})`)
-        if (i.cdj.length !== 4) bad.push(`CDJ는 4단계여야 한다 (현재 ${i.cdj.length})`)
+        if (has('aarrr') && i.aarrr.length !== 5) bad.push(`AARRR는 5단계여야 한다 (현재 ${i.aarrr.length})`)
+        if (has('cdj') && i.cdj.length !== 4) bad.push(`CDJ는 4단계여야 한다 (현재 ${i.cdj.length})`)
+        if (has('tows') && !i.tows.so.length && !i.tows.wo.length) bad.push('TOWS 교차 전략이 비어 있다')
+        if (has('stp') && !i.stp.segments.length) bad.push('STP 세그먼트가 비어 있다')
+        if (has('jtbd') && !i.jtbd.length) bad.push('JTBD가 비어 있다')
+        if (has('unit') && !i.unit.assumptions.length) bad.push('유닛 이코노믹스 가정이 비어 있다')
+        if (has('competition') && !i.competition.players.length) bad.push('경쟁 구도가 비어 있다')
         if (i.superStrategies.length !== 4) bad.push(`SUPER STRATEGIES는 정확히 4개 (현재 ${i.superStrategies.length})`)
         if (i.ksf.length !== 3) bad.push(`KSF는 정확히 3개 (현재 ${i.ksf.length})`)
         if (i.keyClaims.length !== 2) bad.push(`CORE KEY-CLAIMS는 정확히 2개 (현재 ${i.keyClaims.length})`)
@@ -394,6 +446,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     log('insight', `2 CORE KEY-CLAIMS: ${insight.keyClaims.map((k) => k.claim).join(' / ')}`)
     node('insight', 'done', '4-3-2 확정')
     persist()
+    }
 
     /* ---- 7. SYNTHESIZE: 성미 급한 MPM은 일단 결과부터 ---- */
     packet('insight', 'synthesize', 'insight')
@@ -456,6 +509,9 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
 
     /* ---- 8. 최종 검증 A: 고도화 ---- */
     packet('review', 'refine', 'final')
+    if (!proc.refine.run) {
+      skip('refine', proc.refine.reason)
+    } else {
     node('refine', 'running', '디테일 고도화 검증 중')
     const refine = await engine.structured({
       model: models.mpm,
@@ -476,9 +532,13 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       persist()
     }
     node('refine', 'done', refine.verdict === 'improve' ? `고도화 ${refine.issues.length}건` : '유지')
+    }
 
     /* ---- 9. 최종 검증 B: MPM 클론 (거시 디렉터, 직권 지시 1회) ---- */
     packet('refine', 'clone', 'final')
+    if (!proc.clone.run) {
+      skip('clone', proc.clone.reason)
+    } else {
     node('clone', 'running', '숲을 보는 중')
     const clone = await engine.structured({
       model: models.mpm,
@@ -500,6 +560,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       persist()
     }
     node('clone', 'done', clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
+    }
 
     /* ---- 10. DELIVER ---- */
     packet('clone', 'deliver', 'final')

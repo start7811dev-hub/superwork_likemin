@@ -47,6 +47,36 @@ export const ChallengeQuestionSchema = z.object({
 })
 export type ChallengeQuestion = z.infer<typeof ChallengeQuestionSchema>
 
+/** SUPER INSIGHT 방법론 툴박스. MPM이 과제에 맞는 것만 고른다. */
+export const METHODS = {
+  aarrr: 'AARRR 퍼널',
+  tows: 'TOWS 매트릭스',
+  stp: 'STP 2.0',
+  cdj: 'CDJ 고객 여정',
+  jtbd: 'JTBD',
+  unit: '유닛 이코노믹스',
+  competition: '경쟁 구도'
+} as const
+export const MethodSchema = z.enum(['aarrr', 'tows', 'stp', 'cdj', 'jtbd', 'unit', 'competition'])
+export type Method = z.infer<typeof MethodSchema>
+
+const stageToggle = z.object({ run: z.boolean(), reason: z.string() })
+
+/** MPM이 E2E 관점에서 설계하는 공정 (doctrine §0.10) */
+export const ProcessPlanSchema = z.object({
+  scale: z.enum(['focused', 'standard', 'full']).describe('focused=정의된 범위 집중, full=백지에서 전략까지'),
+  rationale: z.string().describe('끝에서 나올 결과물의 질을 기준으로 이 규모를 고른 이유'),
+  givenContext: z.string().describe('이미 확정되어 다시 도출하지 않을 전제(전략·정의 등). 없으면 빈 문자열'),
+  maxTasks: z.number().describe('하위 담당 수 1~6'),
+  factbook: z.object({ mode: z.enum(['full', 'light', 'skip']), reason: z.string() }),
+  simulate: stageToggle,
+  methods: z.array(MethodSchema).describe('SUPER INSIGHT에 쓸 방법론. 비우면 SUPER INSIGHT 생략'),
+  methodsReason: z.string(),
+  refine: stageToggle,
+  clone: stageToggle
+})
+export type ProcessPlan = z.infer<typeof ProcessPlanSchema>
+
 /* ---------- 1. INTAKE: 맥락 캔버스 ---------- */
 export const ContextCanvasSchema = z.object({
   title: z.string().describe('프로젝트를 부를 짧은 이름 (20자 내외)'),
@@ -86,6 +116,8 @@ export const ContextCanvasSchema = z.object({
     meaningfulDifference: z.string().describe('타깃의 선택을 바꿀 수 있는 차이의 방향. 차별을 위한 차별 금지')
   }),
   clarifyingQuestions: z.array(z.string()).describe('사용자에게 확인하면 판단이 크게 바뀌는 질문'),
+  initialClaims: z.array(z.string()).describe('핵심 주장 가설 1~2개 — 이후 분석으로 검증·수정된다'),
+  process: ProcessPlanSchema,
   intent: z.object({
     reading: z.string().describe('MPM이 파악한 요청자의 의도'),
     clear: z.boolean().describe('의도가 파악되면 true — 맞는지 확인하지 않고 진행한다'),
@@ -348,7 +380,7 @@ export const InsightSchema = z.object({
         health: z.number().describe('1~5, 이 단계의 건강도')
       })
     )
-    .describe('AARRR 5단계 모두'),
+    .describe('AARRR 5단계 — 선택하지 않았으면 빈 배열'),
   tows: z.object({
     strengths: z.array(z.string()),
     weaknesses: z.array(z.string()),
@@ -388,13 +420,66 @@ export const InsightSchema = z.object({
         opportunity: z.string()
       })
     )
-    .describe('CDJ 4단계 모두'),
+    .describe('CDJ 4단계 — 선택하지 않았으면 빈 배열'),
+  jtbd: z
+    .array(
+      z.object({
+        situation: z.string().describe('When — 어떤 상황에서'),
+        motivation: z.string().describe('I want to — 하고 싶은 일'),
+        outcome: z.string().describe('So I can — 얻고 싶은 결과'),
+        type: z.enum(['functional', 'emotional', 'social']),
+        currentSolution: z.string().describe('지금 이 일을 위해 고용하는 것'),
+        firingTrigger: z.string().describe('지금 해법을 해고하게 만드는 순간'),
+        importance: z.number().describe('1~10'),
+        satisfaction: z.number().describe('현재 해법 만족도 1~10')
+      })
+    )
+    .describe('JTBD — 선택하지 않았으면 빈 배열'),
+  unit: z
+    .object({
+      currency: z.string(),
+      assumptions: z.array(
+        z.object({ name: z.string(), value: z.number(), unit: z.string(), basis: z.string().describe('근거. 없으면 "확인 필요"'), verified: z.boolean() })
+      ),
+      arpu: z.number().describe('고객당 월 매출'),
+      grossMarginPct: z.number().describe('0~100'),
+      monthlyChurnPct: z.number().describe('0~100'),
+      cac: z.number().describe('고객 획득 비용'),
+      ltv: z.number().describe('ARPU × 마진율 ÷ 월 이탈률'),
+      ltvToCac: z.number(),
+      paybackMonths: z.number().describe('CAC ÷ (ARPU × 마진율)'),
+      sensitivity: z.array(z.object({ variable: z.string(), change: z.string(), effect: z.string() })),
+      verdict: z.string().describe('이 숫자들이 무엇을 말하는가, 무엇이 확인되면 판단이 바뀌는가')
+    })
+    .describe('유닛 이코노믹스 — 선택하지 않았으면 숫자 0, 배열 빈 값'),
+  competition: z
+    .object({
+      players: z.array(
+        z.object({
+          name: z.string(),
+          kind: z.enum(['direct', 'indirect', 'substitute']).describe('직접 경쟁 / 간접 경쟁 / 대체재'),
+          position: z.string(),
+          strength: z.number().describe('1~5'),
+          threat: z.number().describe('우리에게 주는 위협 1~5')
+        })
+      ),
+      dynamics: z.array(z.string()).describe('구도를 바꾸는 힘'),
+      whitespace: z.string().describe('비어 있는 자리 — 차별을 위한 차별이 아닌 의미 있는 차이')
+    })
+    .describe('경쟁 구도 — 선택하지 않았으면 빈 값'),
   superStrategies: z
-    .array(z.object({ name: z.string(), methods: z.string().describe('근거 방법론 조합. 예: TOWS-SO + CDJ 옹호'), description: z.string() }))
+    .array(
+      z.object({
+        name: z.string(),
+        methods: z.string().describe('근거가 된 방법론의 구체적 칸. 예: TOWS-SO#1 + JTBD#2'),
+        description: z.string(),
+        strength: z.enum(['strong', 'moderate', 'weak']).describe('근거의 강도 — 채우기용이면 weak로 솔직히')
+      })
+    )
     .describe('4 SUPER STRATEGIES — 정확히 4개'),
   ksf: z
     .array(z.object({ factor: z.string(), why: z.string(), measure: z.string().describe('측정 지표') }))
-    .describe("MIN'S 3 KEY SUCCESS FACTORS — 정확히 3개"),
+    .describe("3 KEY SUCCESS FACTORS — 정확히 3개"),
   keyClaims: z
     .array(z.object({ claim: z.string().describe('한 문장의 핵심 주장'), support: z.string().describe('뒷받침 근거') }))
     .describe('2 CORE KEY-CLAIMS — 정확히 2개')

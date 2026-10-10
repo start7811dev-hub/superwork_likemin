@@ -50,7 +50,7 @@ export default function FactbookView({ f }: { f: Factbook }) {
                   {p.keyFeatures.map((k, j) => (
                     <li key={j}>
                       <b>{k.feature}</b> → {k.benefit}
-                      <div className="fb-explainer">💡 {k.explainer}</div>
+                      <div className="fb-explainer">{k.explainer}</div>
                     </li>
                   ))}
                 </ul>

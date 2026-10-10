@@ -128,7 +128,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
               <p>의도·목적: {run.verification.clone.macro.intentPurpose}</p>
               <p>타깃·브랜드: {run.verification.clone.macro.targetBrand}</p>
               <p>시장: {run.verification.clone.macro.market}</p>
-              {run.verification.clone.bigIssue && <p><b>📣 직권 지시:</b> {run.verification.clone.directive}</p>}
+              {run.verification.clone.bigIssue && <p><b>직권 지시</b> {run.verification.clone.directive}</p>}
             </section>
           )}
         </article>

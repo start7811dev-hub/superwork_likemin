@@ -29,6 +29,8 @@ export interface Settings {
   maxParallel: number
   /** Factbook 조사에 실제 웹 검색 사용 */
   webResearch: boolean
+  /** adaptive: MPM이 과제마다 공정 규모를 설계 / full: 항상 전체 공정 */
+  processMode: 'adaptive' | 'full'
   /** MPM이 설정값을 무시하고 업무별 모델을 직접 고를 권한 */
   delegation: boolean
   /** 질문 게이트: critical=판단이 크게 바뀔 때만, always=질문이 있으면 항상, never=가정으로 진행 */
@@ -50,6 +52,7 @@ export const DEFAULT_SETTINGS: Settings = {
   maxParallel: 4,
   webResearch: true,
   delegation: true,
+  processMode: 'adaptive',
   askMode: 'critical',
   language: 'ko',
   budget: { mode: 'monthly', amount: 0, since: '' },
@@ -90,7 +93,7 @@ export function estimateCost(usage: UsageSummary): number {
 }
 
 /* ---------- 공정 노드 ---------- */
-export type NodeStatus = 'idle' | 'queued' | 'running' | 'waiting' | 'done' | 'rework' | 'error'
+export type NodeStatus = 'idle' | 'queued' | 'running' | 'waiting' | 'done' | 'rework' | 'error' | 'skipped'
 /** 고정 노드 id. 하위 담당은 `worker:<taskId>` */
 export type FixedNodeId = 'inbox' | 'intake' | 'dispatch' | 'audit' | 'simulate' | 'synthesize' | 'deliver'
 export type PacketKind = 'brief' | 'canvas' | 'task' | 'report' | 'rework' | 'approved' | 'insight' | 'final' | 'fact' | 'revise' | 'directive'

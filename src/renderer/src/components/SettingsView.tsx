@@ -101,6 +101,13 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
       <section className="card-sec">
         <h3>공정</h3>
         <label className="field">
+          <span>공정 규모</span>
+          <select value={s.processMode} onChange={(e) => save({ ...s, processMode: e.target.value as Settings['processMode'] })}>
+            <option value="adaptive">MPM이 과제마다 판단 (권장)</option>
+            <option value="full">항상 전체 공정</option>
+          </select>
+        </label>
+        <label className="field">
           <span>재작업 최대 횟수</span>
           <select value={s.maxRework} onChange={(e) => save({ ...s, maxRework: Number(e.target.value) })}>
             {[0, 1, 2, 3].map((n) => <option key={n} value={n}>{n}회</option>)}

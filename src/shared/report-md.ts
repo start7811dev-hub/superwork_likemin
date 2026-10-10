@@ -143,14 +143,27 @@ export function factbookToMarkdown(f: Factbook, title = '# Factbook', h = '##'):
 /** SUPER INSIGHT: MIN'S 4-3-2 THINKING + 방법론 분석 */
 export function insightToMarkdown(run: RunRecord): string {
   const i = run.insight!
-  return [
+  const out = [
     `## SUPER INSIGHT · MIN'S 4-3-2 THINKING`,
     `### 2 CORE KEY-CLAIMS\n${i.keyClaims.map((c, k) => `${k + 1}. **${c.claim}** — ${c.support}`).join('\n')}`,
-    `### MIN'S 3 KEY SUCCESS FACTORS\n${i.ksf.map((c, k) => `${k + 1}. **${c.factor}** — ${c.why} (지표: ${c.measure})`).join('\n')}`,
-    `### 4 SUPER STRATEGIES\n${i.superStrategies.map((c, k) => `${k + 1}. **${c.name}** \`${c.methods}\` — ${c.description}`).join('\n')}`,
-    `### AARRR\n\n| 단계 | 현재 | 이탈·병목 | 개선 레버 | 건강도 |\n| --- | --- | --- | --- | --- |\n${i.aarrr.map((a) => `| ${a.label} | ${cell(a.current)} | ${cell(a.leak)} | ${cell(a.lever)} | ${a.health}/5 |`).join('\n')}`,
-    `### TOWS\n\n| | 기회(O) | 위협(T) |\n| --- | --- | --- |\n| **강점(S)** | ${cell(i.tows.so.join(' / '))} | ${cell(i.tows.st.join(' / '))} |\n| **약점(W)** | ${cell(i.tows.wo.join(' / '))} | ${cell(i.tows.wt.join(' / '))} |`,
-    `### STP 2.0\n\n포지셔닝: **${i.stp.positioning.statement}**\n\n타깃: **${i.stp.target.segment}** — ${i.stp.target.why}\n\n${i.stp.segments.map((g) => `- ${g.name} (매력도 ${g.attractiveness}/5): ${g.behavior} / ${g.taste}`).join('\n')}`,
-    `### CDJ\n\n| 단계 | 터치포인트 | 감정 | 페인 | 기회 |\n| --- | --- | --- | --- | --- |\n${i.cdj.map((c) => `| ${c.label} | ${cell(c.touchpoints.join(', '))} | ${c.emotion} | ${cell(c.pain)} | ${cell(c.opportunity)} |`).join('\n')}`
-  ].join('\n\n')
+    `### 3 KEY SUCCESS FACTORS\n${i.ksf.map((c, k) => `${k + 1}. **${c.factor}** — ${c.why} (지표: ${c.measure})`).join('\n')}`,
+    `### 4 SUPER STRATEGIES\n${i.superStrategies.map((c, k) => `${k + 1}. **${c.name}** [근거 ${c.strength}] \`${c.methods}\` — ${c.description}`).join('\n')}`
+  ]
+  if (i.jtbd.length)
+    out.push(`### JTBD\n\n| # | When / I want to / So I can | 지금 고용 중 | 해고 계기 | 중요/만족 |\n| --- | --- | --- | --- | --- |\n${i.jtbd.map((j, k) => `| J${k + 1} | ${cell(`${j.situation}, ${j.motivation} — ${j.outcome}`)} | ${cell(j.currentSolution)} | ${cell(j.firingTrigger)} | ${j.importance}/${j.satisfaction} |`).join('\n')}`)
+  if (i.aarrr.length)
+    out.push(`### AARRR\n\n| 단계 | 현재 | 이탈·병목 | 개선 레버 | 건강도 |\n| --- | --- | --- | --- | --- |\n${i.aarrr.map((a) => `| ${a.label} | ${cell(a.current)} | ${cell(a.leak)} | ${cell(a.lever)} | ${a.health}/5 |`).join('\n')}`)
+  if (i.tows.so.length || i.tows.wo.length)
+    out.push(`### TOWS\n\n| | 기회(O) | 위협(T) |\n| --- | --- | --- |\n| **강점(S)** | ${cell(i.tows.so.join(' / '))} | ${cell(i.tows.st.join(' / '))} |\n| **약점(W)** | ${cell(i.tows.wo.join(' / '))} | ${cell(i.tows.wt.join(' / '))} |`)
+  if (i.stp.segments.length)
+    out.push(`### STP 2.0\n\n포지셔닝: **${i.stp.positioning.statement}**\n\n타깃: **${i.stp.target.segment}** — ${i.stp.target.why}\n\n${i.stp.segments.map((g) => `- ${g.name} (매력도 ${g.attractiveness}/5): ${g.behavior} / ${g.taste}`).join('\n')}`)
+  if (i.cdj.length)
+    out.push(`### CDJ\n\n| 단계 | 터치포인트 | 감정 | 페인 | 기회 |\n| --- | --- | --- | --- | --- |\n${i.cdj.map((c) => `| ${c.label} | ${cell(c.touchpoints.join(', '))} | ${c.emotion} | ${cell(c.pain)} | ${cell(c.opportunity)} |`).join('\n')}`)
+  if (i.unit.assumptions.length) {
+    const u = i.unit
+    out.push(`### 유닛 이코노믹스\n\nLTV ${Math.round(u.ltv).toLocaleString()} · CAC ${Math.round(u.cac).toLocaleString()} · **LTV/CAC ${u.ltvToCac.toFixed(1)}×** · 회수 ${u.paybackMonths.toFixed(1)}개월 (${u.currency})\n\n${u.verdict}\n\n| 가정 | 값 | 근거 | 검증 |\n| --- | --- | --- | --- |\n${u.assumptions.map((a) => `| ${cell(a.name)} | ${a.value} ${a.unit} | ${cell(a.basis)} | ${a.verified ? '확인' : '확인 필요'} |`).join('\n')}`)
+  }
+  if (i.competition.players.length)
+    out.push(`### 경쟁 구도\n\n| 플레이어 | 유형 | 포지션 | 강도 | 위협 |\n| --- | --- | --- | --- | --- |\n${i.competition.players.map((p) => `| ${cell(p.name)} | ${p.kind === 'direct' ? '직접' : p.kind === 'indirect' ? '간접' : '대체재'} | ${cell(p.position)} | ${p.strength} | ${p.threat} |`).join('\n')}\n\n**비어 있는 자리:** ${i.competition.whitespace}`)
+  return out.join('\n\n')
 }

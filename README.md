@@ -2,7 +2,7 @@
 
 **MIN처럼 생각하는 MPM(MIN-like Project Manager)에게 기획 업무를 지시하는 데스크톱 앱** (macOS · Windows)
 
-MPM은 업무를 받으면 의도를 읽고, 하위 담당 에이전트들에게 업무를 나눠 주고, 그 보고를 **믿지 않고 검수**합니다. 이어서 Factbook·시뮬레이션·전략 분석을 거쳐 **최소 3개의 대안**을 내고, 결과를 스스로 다시 검증한 뒤 리포트로 전달합니다. 이 모든 과정이 귀여운 에이전트들이 일하는 **아이소메트릭 캠퍼스**로 실시간 시각화됩니다.
+MPM은 업무를 받으면 의도를 읽고, **이 일에 필요한 만큼만 공정을 설계**합니다. 이어서 하위 담당 에이전트들에게 업무를 나눠 주고, 그 보고를 **믿지 않고 검수**합니다. 필요하면 Factbook·시뮬레이션·전략 분석을 거쳐 **최소 3개의 대안**을 내고, 결과를 스스로 다시 검증한 뒤 리포트로 전달합니다. 이 모든 과정이 귀여운 에이전트들이 일하는 **아이소메트릭 캠퍼스**로 실시간 시각화됩니다.
 
 ![캠퍼스 공정 시각화](docs/campus.png)
 
@@ -23,21 +23,32 @@ MPM은 업무를 받으면 의도를 읽고, 하위 담당 에이전트들에게
 ## 1. MPM은 어떤 논리로 일하는가
 
 ```
- ① 의도 파악 ──▶ ② 분장·위임 ──▶ ③ 담당별 Factbook 조사 + 업무 ⇄ 검수 게이트
+ ① 의도 파악·공정 설계 ──▶ ② 분장·위임 ──▶ ③ 담당별 Factbook 조사 + 업무 ⇄ 검수 게이트
                                                       │
  ⑧ 최종 리포트 ◀── ⑦ 검증 루프 ◀── ⑥ 종합 ◀── ⑤ SUPER INSIGHT ◀── ④ Factbook 통합 · 타깃 시뮬레이션
 ```
 
 | 단계 | MPM이 하는 일 | MIN의 원칙 |
 | --- | --- | --- |
-| **① 의도 파악** | 표면 요청을 허물고 실제 문제를 다시 정의한다. 목표와 목적을 분리하고, 브랜드·소비자·시장을 코어로 둔다. | 의도가 읽히면 **묻지 않고 진행**한다. 정말 모호할 때만, 질문자가 이해하기 쉽게 **비유로** 묻는다. |
+| **① 의도 파악 · 공정 설계** | 표면 요청을 허물고 실제 문제를 다시 정의한다. 목표와 목적을 분리하고, 브랜드·소비자·시장을 코어로 둔다. 핵심 주장 가설을 먼저 세운다. 그다음 **이 일의 끝(E2E)에서 무엇이 필요한지 보고 공정의 규모와 구성을 설계한다.** | 의도가 읽히면 **묻지 않고 진행**한다. 정말 모호할 때만, 질문자가 이해하기 쉽게 **비유로** 묻는다. 쥐 잡는 데 소 잡는 칼을 쓰지 않는다. 그렇다고 보수적으로 줄이지도 않는다. |
 | **② 분장 · 위임** | 직함이 아니라 **업무 계약**(목적·책임·판단 기준·경계·출력)을 준다. | 설정의 모델은 기본값일 뿐이고, MPM이 판단 난이도를 보고 **모델을 직접 골라 위임**한다. |
 | **③ 업무 ⇄ 검수** | 하위 담당은 업무와 별개로 **Factbook**(신뢰할 수 있는 사실·데이터·제품 USP/키피처 2 depth·경쟁사)을 만들고 업무를 수행한다. | MPM은 보고를 **무조건 믿지 않는다.** 사실/추론/가설 분류, 출처 3층, 낙관, MIN 체크표를 검사하고 반려하면 재작업시킨다. |
 | **④ Factbook · 시뮬레이션** | 담당별 Factbook을 하나로 통합하고, 엣지 타깃·특수 상황의 행동을 예측한다. | 인문 렌즈(체면, 손실 회피, 귀찮음의 비용 등)로 타깃을 본다. |
-| **⑤ SUPER INSIGHT** | **AARRR · TOWS · STP 2.0 · CDJ**로 분석한 뒤 **MIN'S 4-3-2 THINKING**을 확정한다. | **4** SUPER STRATEGIES · MIN'S **3** KEY SUCCESS FACTORS · **2** CORE KEY-CLAIMS. 이걸 찍고 나서야 대안을 낸다. |
+| **⑤ SUPER INSIGHT** | 과제에 맞는 방법론만 골라(JTBD · AARRR · TOWS · STP 2.0 · CDJ · 유닛 이코노믹스 · 경쟁 구도) 핵심 주장 가설을 검증한 뒤 **MIN'S 4-3-2 THINKING**을 확정한다. | **4** SUPER STRATEGIES · **3** KEY SUCCESS FACTORS · **2** CORE KEY-CLAIMS. 전략마다 근거가 된 방법론의 칸과 근거 강도를 밝힌다. |
 | **⑥ 종합** | 성미가 급해서 **일단 결과부터 낸다.** 본질적으로 다른 대안을 최소 3개 만들고 조건부로 추천한다. | 대안마다 비용(확인 필요), 차별화, 관성/혁신, 빼는 것, 첫인상/반복 사용, 철회 조건을 쓴다. |
 | **⑦ 검증 루프** | 결과를 **재검증**한다. 이어서 최종 검증 A(**디테일 고도화**)와 최종 검증 B(**MPM 클론**)를 거친다. | 클론은 디테일을 보지 않고 의도·타깃·브랜드·시장을 거시적으로 본다. 큰 이슈가 있을 때만 **직권 지시를 한 번** 내린다. |
 | **⑧ 리포트** | 리포트·SUPER INSIGHT 시각화·Factbook·검증 이력을 함께 전달한다. | 사실/가정/미확인을 분리하고, 다음 검증 항목으로 끝맺는다. |
+
+### 공정은 MPM이 판단한다
+모든 일에 A부터 Z까지가 필요하지는 않습니다. MPM은 일을 받으면 공정의 규모(집중 / 표준 / 전체)와 구성을 스스로 정합니다.
+
+| 상황 | MPM의 판단 예 |
+| --- | --- |
+| 명확히 정의된 내용의 서비스 기획 | Factbook 생략, 담당 소수, 방법론은 JTBD·CDJ 정도 |
+| 전략은 이미 나왔고 특정 서비스 영역을 집중 논의 | 전략을 "주어진 전제"로 두고 다시 도출하지 않음, 해당 영역에 집중 |
+| 신사업·런칭처럼 백지에서 전략까지 | 전체 공정, Factbook 전원 조사, 방법론 다수, 클론 검증 |
+
+생략한 단계는 캠퍼스에서 흐리게 표시되고, 인스펙터에서 생략 이유를 볼 수 있습니다. **재검증 1회와 최소 3개 대안은 규모와 상관없이 지킵니다.** 설정의 **공정 규모**를 "항상 전체 공정"으로 바꾸면 항상 모든 단계를 돌립니다.
 
 MPM의 모든 주요 결정은 **판단 엔진**이 내립니다. MIN의 자기 분석·방법론 문서와 운영 교리에서 근거를 찾아 추론하고, 반대 증거를 검토한 뒤 결정합니다. 결정마다 근거 문서와 위치(예: `doctrine §0.5-4`, `02-min-skill.md §3.1`)를 기록합니다.
 
@@ -57,19 +68,33 @@ MPM의 모든 주요 결정은 **판단 엔진**이 내립니다. MIN의 자기 
 </tr>
 </table>
 
-### SUPER INSIGHT 시각화
+### SUPER INSIGHT 방법론 툴박스
+
+| 방법론 | 보는 것 | 잘 맞는 과제 |
+| --- | --- | --- |
+| **JTBD** | 고객이 '고용'하는 일, 지금 해법을 해고하게 만드는 순간, 기회 점수(중요도 + 불만족) | 서비스 기획, 신기능, 리포지셔닝 |
+| **AARRR** | 획득 → 활성화 → 유지 → 매출 → 추천, 단계별 이탈 | 디지털 서비스·앱·이커머스 |
+| **TOWS** | SWOT 교차(SO/ST/WO/WT)로 바로 실행할 전략 | 현황을 실무 전략으로 바꿀 때 |
+| **STP 2.0** | 행동·취향 기반 세분화 → 타깃 → 포지셔닝 맵 | 신제품 출시, 광고 타깃 |
+| **CDJ** | 인지 → 고려 → 구매 → 옹호, 터치포인트와 감정 곡선 | CX 개선, 브랜드 충성도 |
+| **유닛 이코노믹스** | ARPU · 마진 · 이탈 · CAC → LTV, LTV/CAC, 회수 기간, 민감도 | 구독·커머스·사업성 판단 |
+| **경쟁 구도** | 직접 경쟁 · 간접 경쟁 · 대체재, 위협, 비어 있는 자리 | 진입·차별화 판단 |
 
 <table>
 <tr>
 <td width="50%"><img src="docs/insight-432.png" alt="MIN'S 4-3-2 THINKING" /><br/><sub>MIN'S 4-3-2 THINKING</sub></td>
-<td width="50%"><img src="docs/aarrr.png" alt="AARRR" /><br/><sub>AARRR 퍼널 — 단계별 건강도와 이탈 구간</sub></td>
+<td width="50%"><img src="docs/jtbd.png" alt="JTBD" /><br/><sub>JTBD — 기회 지형</sub></td>
 </tr>
 <tr>
+<td><img src="docs/aarrr.png" alt="AARRR" /><br/><sub>AARRR 퍼널 — 단계별 건강도와 이탈 구간</sub></td>
 <td><img src="docs/tows.png" alt="TOWS" /><br/><sub>TOWS — SWOT 교차로 실행 전략 도출</sub></td>
-<td><img src="docs/stp.png" alt="STP 2.0" /><br/><sub>STP 2.0 — 행동·취향 세분화와 포지셔닝 맵</sub></td>
 </tr>
 <tr>
-<td><img src="docs/cdj.png" alt="CDJ" /><br/><sub>CDJ — 고객 여정과 감정 곡선</sub></td>
+<td><img src="docs/stp.png" alt="STP 2.0" /><br/><sub>STP 2.0 — 행동·취향 세분화와 포지셔닝 맵</sub></td>
+<td><img src="docs/unit.png" alt="유닛 이코노믹스" /><br/><sub>유닛 이코노믹스 — LTV/CAC와 가정 검증 여부</sub></td>
+</tr>
+<tr>
+<td><img src="docs/competition.png" alt="경쟁 구도" /><br/><sub>경쟁 구도 — 직접·간접·대체재와 비어 있는 자리</sub></td>
 <td><img src="docs/factbook.png" alt="Factbook" /><br/><sub>Factbook — 데이터, 제품 USP · 키피처 2 depth</sub></td>
 </tr>
 </table>
@@ -192,7 +217,7 @@ API 키와 Admin 키는 이 폴더 안에 OS 암호화로 저장됩니다.
 ```
 brain/
   identity/      MIN의 자기 분석 · 맥락 운영 방법론 (판단 엔진의 근거 · 저장소 비공개, 릴리스 빌드 때 Secrets에서 주입)
-  doctrine.md    MPM 운영 교리: MIN 체크표, 의도 파악, 판단 엔진, 작업 리듬, 위임, Factbook, 검수, 대안 규칙
+  doctrine.md    MPM 운영 교리: MIN 체크표, 의도 파악, 판단 엔진, 작업 리듬, 위임, Factbook, 공정 설계, 검수, 대안 규칙
   roster.json    MPM이 분장할 수 있는 하위 담당 (역할·관점·모델 등급)
   knowledge/     추가 지식 (*.md는 전부 주입됨)
 ```
@@ -246,7 +271,7 @@ npm run build && SWLM_SHOT_DIR=./shots npx electron .
 ```
 src/main/
   engine/pipeline.ts   공정 오케스트레이터 (의도 질문 → 분장·위임 → Factbook+업무⇄검수 → 통합 → 시뮬레이션
-                       → SUPER INSIGHT → 종합 → 재검증 → 고도화 → MPM 클론 → 전달)
+                       → SUPER INSIGHT → 종합 → 재검증 → 고도화 → MPM 클론 → 전달, 단계별 실행·생략은 MPM 판단)
   engine/prompts.ts    단계별 업무 계약 (책임 · 판단 기준 · 경계 · 판단 엔진 규칙)
   engine/claude.ts     Claude API: structured outputs, 서버 측 거절 폴백, 웹 검색, 사용량 집계
   engine/demo.ts       키 없이 체험하는 데모 엔진
@@ -258,7 +283,7 @@ src/main/
 src/shared/schemas.ts  모든 단계의 출력 스키마 (단일 기준)
 src/renderer/
   components/Factory.tsx      아이소메트릭 캠퍼스 (에이전트 캐릭터, 파이프라인, 확대·이동)
-  components/StrategyViz.tsx  SUPER INSIGHT 다이어그램 (4-3-2 · AARRR · TOWS · STP · CDJ)
+  components/StrategyViz.tsx  SUPER INSIGHT 다이어그램 (4-3-2 · JTBD · AARRR · TOWS · STP · CDJ · 유닛 이코노믹스 · 경쟁 구도)
   components/iso.tsx          아이소메트릭 드로잉 키트 (공정 · 전략 시각화 공용)
 ```
 
@@ -269,4 +294,4 @@ src/renderer/
 | 연동 추가 (코드) | `src/main/integrations/index.ts`의 `Integration` |
 | 내보내기 형식 | `src/main/export/index.ts`의 `EXPORTERS` |
 | 공정 단계 | `pipeline.ts` + `schemas.ts` + `Factory.tsx` 레이아웃 |
-| 분석 방법론 | `InsightSchema` + `prompts.ts`의 `ROLE.insight` + `StrategyViz.tsx` |
+| 분석 방법론 | `METHODS` · `InsightSchema` (schemas.ts) + `prompts.ts`의 `ROLE.insight` + `StrategyViz.tsx` |

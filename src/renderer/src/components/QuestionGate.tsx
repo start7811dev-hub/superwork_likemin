@@ -11,7 +11,12 @@ export default function QuestionGate({ reading, items, onSubmit }: { reading: st
         <span className="gate-badge">MPM의 의도 질문</span>
         <span className="muted small">의도가 잡히면 묻지 않습니다. 이번엔 정말 헷갈려서, 비유로 여쭤봐요.</span>
       </div>
-      {reading && <p className="pushback"><b>지금까지 읽힌 의도</b> {reading}</p>}
+      {reading && (
+        <div className="kv">
+          <span className="kv-k">읽힌 의도</span>
+          <span>{reading}</span>
+        </div>
+      )}
       <ol className="gate-list">
         {items.map((q, i) => (
           <li key={i}>
@@ -19,7 +24,7 @@ export default function QuestionGate({ reading, items, onSubmit }: { reading: st
               {q.question}
               <span className="tag">{MIN_CHECKS[q.checkpoint as keyof typeof MIN_CHECKS] ?? '의도'}</span>
             </div>
-            <div className="analogy">💡 {q.analogy}</div>
+            <div className="analogy"><span className="kv-k">비유</span><span>{q.analogy}</span></div>
             <div className="small muted">왜 묻나: {q.why}</div>
             <textarea
               value={answers[i]}

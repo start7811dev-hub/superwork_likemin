@@ -80,6 +80,19 @@ const canvas: ContextCanvas = {
     meaningfulDifference: '가격·메뉴 수가 아니라 “결정을 대신해 주는 신뢰” — 메뉴를 더 늘리는 차별은 차별을 위한 차별'
   },
   clarifyingQuestions: ['배송 권역은 수도권 한정인가?', '목표 객단가는 어느 수준인가?'],
+  initialClaims: ['밀키트가 아니라 “저녁 결정”을 판다', '확산은 광고보다 관계에서 일어난다'],
+  process: {
+    scale: 'standard',
+    rationale: '런칭 전략이라 시장·경쟁 사실과 수익성 검토가 결과를 바꾼다. 다만 고객 여정은 AARRR와 겹쳐 CDJ는 생략',
+    givenContext: '',
+    maxTasks: 5,
+    factbook: { mode: 'light', reason: '시장·경쟁 사실은 필요하지만 모든 담당이 조사할 필요는 없음 — 시장 담당만' },
+    simulate: { run: true, reason: '구독 해지 같은 엣지 행동이 결과를 좌우' },
+    methods: ['aarrr', 'tows', 'stp', 'jtbd', 'unit', 'competition'],
+    methodsReason: '퍼널·포지셔닝·고객의 일·수익성·경쟁이 모두 판단 축. CDJ는 AARRR와 중복이라 제외',
+    refine: { run: true, reason: '비용·지표 디테일이 실행 판단에 직결' },
+    clone: { run: true, reason: '런칭 방향 자체를 거시적으로 점검할 가치가 있음' }
+  },
   intent: {
     reading: '30대 직장인을 첫 구독 고객으로 확보하는 실행 전략이 필요하다',
     clear: false,
@@ -191,17 +204,49 @@ const insight: Insight = {
       points: [{ name: '우리', x: 3, y: 4, isUs: true }, { name: 'PB 밀키트', x: -4, y: -2, isUs: false }, { name: '배달앱', x: -1, y: -4, isUs: false }, { name: '프리미엄 밀키트', x: 3, y: -2, isUs: false }]
     }
   },
-  cdj: [
-    { stage: 'awareness', label: '인지', touchpoints: ['사내 게시판', '동료 추천'], emotion: 0, pain: '또 하나의 구독?', opportunity: '동료의 실사용 후기' },
-    { stage: 'consideration', label: '고려', touchpoints: ['취향 진단 3문항'], emotion: 1, pain: '해지 걱정', opportunity: '건너뛰기 무제한 강조' },
-    { stage: 'purchase', label: '구매', touchpoints: ['첫 박스 결제'], emotion: 1, pain: '가격 비교', opportunity: '복지 포인트 결제' },
-    { stage: 'advocacy', label: '옹호', touchpoints: ['함께 먹기 초대권'], emotion: 2, pain: '공유 계기 부족', opportunity: '두 명분 이벤트' }
+  cdj: [],
+  jtbd: [
+    { situation: '야근 후 9시에 집에 도착했을 때', motivation: '고민 없이 제대로 된 한 끼를 먹고 싶다', outcome: '내일을 위해 에너지를 회복할 수 있게', type: 'functional', currentSolution: '배달앱 20분 스크롤', firingTrigger: '배달비·대기시간이 아까울 때', importance: 9, satisfaction: 4 },
+    { situation: '주말에 장을 보며', motivation: '건강하게 먹고 있다는 확신을 갖고 싶다', outcome: '죄책감 없이 지내게', type: 'emotional', currentSolution: '과한 장보기 후 폐기', firingTrigger: '냉장고 속 버려지는 재료', importance: 7, satisfaction: 3 },
+    { situation: '연인·동료와 저녁 약속이 없을 때', motivation: '누군가와 함께 먹는 기분을 내고 싶다', outcome: '외롭지 않게', type: 'social', currentSolution: '혼밥 + 영상', firingTrigger: '혼밥이 반복될 때', importance: 6, satisfaction: 5 }
   ],
+  unit: {
+    currency: 'KRW',
+    assumptions: [
+      { name: '월 구독료', value: 59000, unit: '원', basis: '주 2회 × 2인분 가정 — 확인 필요', verified: false },
+      { name: '매출총이익률', value: 32, unit: '%', basis: '업계 통상 수준 추정 — 확인 필요', verified: false },
+      { name: '월 이탈률', value: 18, unit: '%', basis: '식품 구독 일반 가정 — 확인 필요', verified: false },
+      { name: 'CAC', value: 45000, unit: '원', basis: '사내 제휴 채널 가정 — 확인 필요', verified: false }
+    ],
+    arpu: 59000,
+    grossMarginPct: 32,
+    monthlyChurnPct: 18,
+    cac: 45000,
+    ltv: 104889,
+    ltvToCac: 2.3,
+    paybackMonths: 2.4,
+    sensitivity: [
+      { variable: '월 이탈률', change: '18% → 12%', effect: 'LTV/CAC 2.3 → 3.5' },
+      { variable: 'CAC', change: '45,000 → 70,000원 (광고 채널)', effect: 'LTV/CAC 1.5 — 광고 중심 확보는 위험' }
+    ],
+    verdict: '이탈률이 판단을 뒤집는 핵심 변수. 2회차 유지율 실측 전에는 광고 확대 금지'
+  },
+  competition: {
+    players: [
+      { name: '대형 유통 PB 밀키트', kind: 'direct', position: '가격·접근성', strength: 5, threat: 3 },
+      { name: '프리미엄 밀키트', kind: 'direct', position: '고급 메뉴', strength: 3, threat: 2 },
+      { name: '배달앱', kind: 'substitute', position: '즉시성', strength: 5, threat: 5 },
+      { name: '편의점 도시락', kind: 'substitute', position: '최저 노력', strength: 4, threat: 3 },
+      { name: '식단 관리 앱', kind: 'indirect', position: '건강 관리', strength: 2, threat: 2 }
+    ],
+    dynamics: ['배달비 상승으로 배달앱 이탈 수요 증가', 'PB의 가격 공세'],
+    whitespace: '“오늘 뭐 먹지”를 대신 정해 주는 자리 — 메뉴 수가 아닌 결정 대행'
+  },
   superStrategies: [
-    { name: '결정 대행 큐레이션', methods: 'TOWS-SO + STP', description: '취향 학습으로 “오늘 뭐 먹지”를 대신 정한다' },
-    { name: '신뢰 채널 차용', methods: 'TOWS-WO + CDJ 인지', description: '사내 복지로 첫 경험의 신뢰를 빌린다' },
-    { name: '반복 피로 제거', methods: 'AARRR 유지 + CDJ 고려', description: '건너뛰기·일시정지로 박스가 쌓이지 않게' },
-    { name: '함께 먹기 확산', methods: 'AARRR 추천 + CDJ 옹호', description: '관계를 매개로 한 초대 구조' }
+    { name: '결정 대행 큐레이션', methods: 'TOWS-SO#1 + JTBD#1', description: '취향 학습으로 “오늘 뭐 먹지”를 대신 정한다', strength: 'strong' },
+    { name: '신뢰 채널 차용', methods: 'TOWS-WO#1 + 경쟁 whitespace', description: '사내 복지로 첫 경험의 신뢰를 빌린다', strength: 'moderate' },
+    { name: '반복 피로 제거', methods: 'AARRR 유지 + JTBD#2', description: '건너뛰기·일시정지로 박스가 쌓이지 않게', strength: 'strong' },
+    { name: '함께 먹기 확산', methods: 'AARRR 추천', description: '관계를 매개로 한 초대 구조', strength: 'weak' }
   ],
   ksf: [
     { factor: '첫 박스 조리 완료율', why: '첫인상이 반복 사용을 결정', measure: '수령 후 72시간 내 조리율' },
