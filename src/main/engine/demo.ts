@@ -80,6 +80,7 @@ const canvas: ContextCanvas = {
     meaningfulDifference: '가격·메뉴 수가 아니라 “결정을 대신해 주는 신뢰” — 메뉴를 더 늘리는 차별은 차별을 위한 차별'
   },
   clarifyingQuestions: ['배송 권역은 수도권 한정인가?', '목표 객단가는 어느 수준인가?'],
+  materials: [],
   initialClaims: ['밀키트가 아니라 “저녁 결정”을 판다', '확산은 광고보다 관계에서 일어난다'],
   process: {
     scale: 'standard',
@@ -321,25 +322,26 @@ export class DemoEngine {
 
   async structured<S extends z.ZodType>(opts: CallOptions & { schema: S }): Promise<z.infer<S>> {
     const s = opts.schema as unknown
+    const user = typeof opts.user === 'string' ? opts.user : opts.user.map((b) => ('text' in b ? b.text : '')).join('\n')
     await wait(s === SynthesisSchema ? 4200 : s === ContextCanvasSchema ? 3200 : 1800 + Math.random() * 2400, opts.signal)
     this.bump(opts.model)
     if (s === ContextCanvasSchema) {
       // 의도를 답했으면 재설계된 캔버스는 clear=true
-      return (opts.user.includes('<min_answers>') ? { ...canvas, intent: { ...canvas.intent, clear: true, questions: [] } } : canvas) as never
+      return (user.includes('<min_answers>') ? { ...canvas, intent: { ...canvas.intent, clear: true, questions: [] } } : canvas) as never
     }
     if (s === FactbookSchema) return factbook as never
-    if (s === ReviewSchema) return review(opts.user.includes('<previous_review>') ? 'refine' : 'review') as never
+    if (s === ReviewSchema) return review(user.includes('<previous_review>') ? 'refine' : 'review') as never
     if (s === CloneReviewSchema) return clone as never
     if (s === InsightSchema) return insight as never
     if (s === DispatchPlanSchema) return structuredClone(plan) as never
     if (s === WorkerReportSchema) {
-      const t = plan.tasks.find((x) => opts.user.includes(`제목: ${x.title}`))
-      const isRework = opts.user.includes('<rework_request>')
+      const t = plan.tasks.find((x) => user.includes(`제목: ${x.title}`))
+      const isRework = user.includes('<rework_request>')
       return report(t?.title ?? '분석', isRework) as never
     }
     if (s === AuditResultSchema) {
       this.auditCalls++
-      const t = plan.tasks.find((x) => opts.user.includes(`"title": "${x.title}"`))
+      const t = plan.tasks.find((x) => user.includes(`"title": "${x.title}"`))
       // 두 번째·네 번째 담당은 첫 라운드에서 반려해 "믿지 않는" 루프를 보여 준다.
       const shouldReject = t && (t.id === 't2' || t.id === 't4') && !this.reworked.has(t.id)
       if (shouldReject) {
@@ -353,7 +355,7 @@ export class DemoEngine {
     throw new Error('demo: unknown schema')
   }
 
-  async research(opts: CallOptions, _web = true): Promise<string> {
+  async research(opts: CallOptions, _web = true, _mcp: unknown[] = []): Promise<string> {
     await wait(1500, opts.signal)
     return '(데모) 리서치 메모'
   }

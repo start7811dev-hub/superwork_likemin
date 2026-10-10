@@ -72,6 +72,18 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
             <button key={f} className="chip" onClick={() => doExport(f)}>{f.toUpperCase()}</button>
           ))}
           {run.factbook && <button className="chip" onClick={() => doExport('factbook')}>Factbook</button>}
+          <button className="chip" disabled={busy === 'pptx' || run.demo} title={run.demo ? '데모 실행은 PPT로 만들 수 없습니다' : 'Claude의 PPTX 스킬로 보고용 덱을 만듭니다 (1~3분, API 비용 발생)'} onClick={async () => {
+            setBusy('pptx')
+            onToast('PPT 덱을 만드는 중입니다… (1~3분)')
+            try {
+              const res = await api.exporter.save(run.id, 'pptx')
+              if (res.ok) onToast(`저장됨: ${res.path}`)
+            } catch (e) {
+              onToast(`PPT 생성 실패: ${(e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, '')}`)
+            } finally {
+              setBusy('')
+            }
+          }}>{busy === 'pptx' ? 'PPT 생성 중…' : 'PPT'}</button>
           <button className="chip" onClick={copy}>복사</button>
         </div>
         <div className="group">

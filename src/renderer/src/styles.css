@@ -362,3 +362,13 @@ textarea.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .unit-kpis b { font-variant-numeric: tabular-nums; font-size: 20px; font-weight: 600; letter-spacing: -.02em; }
 .unit-kpis b.warn { color: var(--bad); }
 .unit-verdict { font-weight: 600; }
+/* ---------- 첨부 ---------- */
+.command-box.drag { border-color: var(--ink); box-shadow: 0 0 0 4px rgba(17,17,20,.06), 0 12px 40px rgba(29, 32, 37, .10); }
+.attach-row { display: flex; flex-wrap: wrap; gap: 6px; padding: 2px 2px 8px; border-bottom: 1px solid var(--hair); margin-bottom: 6px; }
+.attach { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--hair); border-radius: 8px; padding: 4px 6px 4px 8px; font-size: 12px; max-width: 320px; }
+.attach b { font-size: 10px; font-weight: 700; color: var(--muted); letter-spacing: .02em; }
+.attach button { color: var(--muted); font-size: 14px; line-height: 1; padding: 0 2px; }
+.attach button:hover { color: var(--ink); }
+.attach .login { font-size: 11px; border: 1px solid var(--hair); border-radius: 6px; padding: 2px 6px; }
+.attach-btn { font-size: 12px; padding: 6px 12px; margin-right: 8px; }
+.command-foot { gap: 0; }

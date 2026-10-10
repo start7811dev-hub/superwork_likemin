@@ -16,6 +16,12 @@ type TextBlock = Anthropic.Beta.Messages.BetaTextBlockParam
 /** 서버 측 거절 폴백("default")을 지원하는 모델 */
 const FALLBACK_MODELS = new Set(['claude-opus-5-5', 'claude-opus-5', 'claude-sonnet-5-5', 'claude-fable-5-1'])
 
+export interface McpServer {
+  name: string
+  url: string
+  token?: string
+}
+
 export class PipelineCancelled extends Error {
   constructor() {
     super('cancelled')
@@ -25,7 +31,8 @@ export class PipelineCancelled extends Error {
 export interface CallOptions {
   model: string
   system: TextBlock[]
-  user: string
+  /** 텍스트, 또는 PDF·이미지가 섞인 블록 배열 */
+  user: string | Anthropic.Beta.Messages.BetaContentBlockParam[]
   effort: Effort
   signal: AbortSignal
   maxTokens?: number
@@ -124,8 +131,11 @@ export class ClaudeEngine {
     throw new Error(`구조화 출력 실패: ${lastError}`)
   }
 
-  /** Factbook 조사. web=true면 서버 측 웹 검색을 쓰고, 출처 URL을 포함한 메모를 반환한다. */
-  async research(opts: CallOptions, web = true): Promise<string> {
+  /**
+   * Factbook 조사. web=true면 서버 측 웹 검색을, mcp가 있으면 원격 MCP 서버 도구를 쓴다.
+   * 출처 URL을 포함한 메모를 반환한다.
+   */
+  async research(opts: CallOptions, web = true, mcp: McpServer[] = []): Promise<string> {
     const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [{ role: 'user', content: opts.user }]
     const sources = new Map<string, string>()
     let notes = ''
@@ -134,8 +144,18 @@ export class ClaudeEngine {
         ...this.baseParams(opts.model, opts.effort, opts.maxTokens ?? 16000),
         system: opts.system,
         messages,
-        ...(web ? { tools: [{ type: 'web_search_20260209', name: 'web_search', max_uses: 8 }] } : {})
+        tools: [
+          ...(web ? [{ type: 'web_search_20260209', name: 'web_search', max_uses: 8 }] : []),
+          ...mcp.map((m) => ({ type: 'mcp_toolset', mcp_server_name: m.name }))
+        ],
+        ...(mcp.length
+          ? {
+              mcp_servers: mcp.map((m) => ({ type: 'url', url: m.url, name: m.name, ...(m.token ? { authorization_token: m.token } : {}) })),
+              betas: [...((this.baseParams(opts.model, opts.effort, 0).betas as string[]) ?? []), 'mcp-client-2025-11-20']
+            }
+          : {})
       } as BetaParams
+      if (!(params.tools as unknown[]).length) delete (params as { tools?: unknown }).tools
       const msg = await this.send(params, opts.signal)
       for (const block of msg.content) {
         if (block.type === 'text') notes += block.text
@@ -149,5 +169,65 @@ export class ClaudeEngine {
     const srcList = [...sources.entries()].map(([url, title]) => `- ${title} — ${url}`).join('\n')
     const caveat = web ? '' : '\n\n[주의] 웹 검색 없이 모델 지식으로 작성됨 — 시점이 오래됐을 수 있으니 reliability를 보수적으로 매길 것.'
     return `${notes.trim()}\n\n[검색된 출처]\n${srcList || '- (없음)'}${caveat}`
+  }
+
+  /**
+   * Anthropic pptx 스킬로 리포트를 PPT 덱으로 만든다 (코드 실행 컨테이너).
+   * 생성된 파일은 Files API로 내려받는다.
+   */
+  async pptxDeck(model: string, markdown: string, title: string, signal?: AbortSignal): Promise<{ name: string; data: Buffer }> {
+    const container: { skills: { type: 'anthropic'; skill_id: string; version: string }[]; id?: string } = {
+      skills: [{ type: 'anthropic', skill_id: 'pptx', version: 'latest' }]
+    }
+    const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [
+      {
+        role: 'user',
+        content: `아래 기획 리포트로 경영진 보고용 PPT 덱(16:9, 12~18장)을 만들어 "${title.replace(/"/g, '')}.pptx"로 저장하라.
+구성: 표지 → 요약 → 코어(목표·목적·브랜드·소비자·시장) → MIN'S 4-3-2 THINKING → 대안별 1~2장 → 비교표 → 조건부 추천 → 다음 검증.
+디자인: 흰 배경, 큰 타이포그래피, 넉넉한 여백, 강조색은 #FF3FA4 하나만, 색 바탕 박스·왼쪽 컬러 보더 금지. 한 장에 메시지 하나.
+한국어로 작성한다.
+
+<report>
+${markdown}
+</report>`
+      }
+    ]
+    const fileIds = new Set<string>()
+    const collect = (v: unknown): void => {
+      if (!v || typeof v !== 'object') return
+      if (Array.isArray(v)) return v.forEach(collect)
+      for (const [k, val] of Object.entries(v)) {
+        if (k === 'file_id' && typeof val === 'string') fileIds.add(val)
+        else collect(val)
+      }
+    }
+    for (let turn = 0; turn < 6; turn++) {
+      const params = {
+        model,
+        max_tokens: 32000,
+        betas: ['code-execution-2025-08-25'],
+        container,
+        tools: [{ type: 'code_execution_20260521', name: 'code_execution' }],
+        output_config: { effort: 'medium' },
+        messages
+      } as unknown as BetaParams
+      const msg = await this.send(params, signal ?? new AbortController().signal)
+      collect(msg.content)
+      const c = (msg as unknown as { container?: { id: string } }).container
+      if (c?.id) container.id = c.id
+      if (msg.stop_reason !== 'pause_turn') break
+      messages.push({ role: 'assistant', content: msg.content as never })
+    }
+    for (const id of fileIds) {
+      try {
+        const meta = await this.client.files.retrieveMetadata(id)
+        if (!/\.pptx$/i.test(meta.filename)) continue
+        const res = await this.client.files.download(id)
+        return { name: meta.filename, data: Buffer.from(await res.arrayBuffer()) }
+      } catch {
+        /* 다음 파일 시도 */
+      }
+    }
+    throw new Error('PPT 파일을 받지 못했습니다. 잠시 후 다시 시도하세요.')
   }
 }

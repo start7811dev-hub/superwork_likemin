@@ -41,6 +41,8 @@ export interface Settings {
    * monthly: 매월 1일 리셋되는 월 예산 / credit: since 시점에 충전·확인한 잔액
    */
   budget: { mode: 'monthly' | 'credit'; amount: number; since: string }
+  /** 원격 MCP 서버 — Factbook 조사에서 하위 담당이 도구로 사용. 토큰은 secrets에 `mcp:<name>`으로 암호화 저장 */
+  mcpServers: { name: string; url: string; enabled: boolean }[]
   /** 통합(연동)별 설정값. 키: integration id */
   integrations: Record<string, Record<string, string>>
 }
@@ -56,6 +58,7 @@ export const DEFAULT_SETTINGS: Settings = {
   askMode: 'critical',
   language: 'ko',
   budget: { mode: 'monthly', amount: 0, since: '' },
+  mcpServers: [],
   integrations: {}
 }
 
@@ -133,6 +136,9 @@ export interface RunRecord {
   depth: Depth
   status: 'running' | 'done' | 'error' | 'cancelled'
   error?: string
+  /** 참고 자료 (첨부 파일·링크) — 원본 내용은 저장하지 않고 목록만 */
+  materials?: { source: string; kind: string; note?: string }[]
+  materialErrors?: string[]
   /** API 키 없이 데모 엔진으로 실행됨 (비용 집계 제외) */
   demo?: boolean
   brainVersion: string
@@ -207,7 +213,7 @@ export interface BrainSnapshot {
 }
 
 /* ---------- 내보내기 / 연동 ---------- */
-export type ExportFormat = 'md' | 'html' | 'json' | 'pdf' | 'factbook'
+export type ExportFormat = 'md' | 'html' | 'json' | 'pdf' | 'factbook' | 'pptx'
 
 export interface IntegrationField {
   key: string
@@ -237,6 +243,13 @@ export interface CostStatus {
   error?: string
 }
 
+export interface AttachmentInfo {
+  path: string
+  name: string
+  size: number
+  ext: string
+}
+
 export interface UpdateStatus {
   state: 'idle' | 'checking' | 'available' | 'none' | 'downloading' | 'ready' | 'error' | 'dev'
   version?: string
@@ -252,6 +265,21 @@ export interface LikeMinApi {
     save(s: Settings): Promise<void>
     setKey(key: string): Promise<{ ok: boolean; message: string }>
     clearKey(): Promise<void>
+  }
+  files: {
+    /** 파일 선택 창 → 경로 목록 */
+    pick(): Promise<AttachmentInfo[]>
+    /** 드래그&드롭한 파일 → 경로 */
+    pathFor(file: File): string
+    info(paths: string[]): Promise<AttachmentInfo[]>
+  }
+  links: {
+    login(url: string): Promise<void>
+    clearSessions(): Promise<void>
+  }
+  secrets: {
+    has(name: string): Promise<boolean>
+    set(name: string, value: string | null): Promise<void>
   }
   cost: {
     get(force?: boolean): Promise<CostStatus>
@@ -272,7 +300,7 @@ export interface LikeMinApi {
     list(): Promise<RunSummary[]>
     get(id: string): Promise<RunRecord | null>
     remove(id: string): Promise<void>
-    start(brief: string, depth: Depth, demo?: boolean): Promise<string>
+    start(brief: string, depth: Depth, demo?: boolean, attachments?: string[]): Promise<string>
     cancel(id: string): Promise<void>
     /** 질문 게이트 응답. null이면 가정대로 진행 */
     answer(id: string, answers: string[] | null): Promise<void>

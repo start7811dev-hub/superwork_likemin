@@ -19,6 +19,7 @@ export function runToMarkdown(run: RunRecord): string {
     `> SUPER WORK – LIKE MIN · ${new Date(run.createdAt).toLocaleString('ko-KR')} · 깊이: ${run.depth} · 두뇌 v${run.brainVersion} · 비용 약 $${estimateCost(run.usage).toFixed(2)}`
   )
   out.push(`## 요청\n\n${run.brief}`)
+  if (run.materials?.length) out.push(`**참고 자료:** ${run.materials.map((m) => m.source).join(' · ')}`)
 
   if (s) {
     out.push(`## 요약\n\n${s.executiveSummary}`)

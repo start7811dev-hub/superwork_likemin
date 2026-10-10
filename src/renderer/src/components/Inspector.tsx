@@ -106,7 +106,23 @@ function Findings({ report }: { report: WorkerReport }) {
 }
 
 function Body({ id, r }: { id: string; r: RunRecord }) {
-  if (id === 'inbox') return <Sec title="MIN의 지시"><p className="pre">{r.brief}</p></Sec>
+  if (id === 'inbox')
+    return (
+      <>
+        <Sec title="MIN의 지시"><p className="pre">{r.brief}</p></Sec>
+        {r.materials?.length ? (
+          <Sec title={`참고 자료 ${r.materials.length}건`}>
+            <ul className="proc">{r.materials.map((m, i) => <li key={i}><span className="tag">{m.kind === 'pdf' ? 'PDF' : m.kind === 'image' ? '이미지' : '텍스트'}</span> {m.source}{m.note && <div className="small muted">{m.note}</div>}</li>)}</ul>
+          </Sec>
+        ) : null}
+        {r.materialErrors?.length ? <Sec title="읽지 못한 자료"><Ul items={r.materialErrors} /></Sec> : null}
+        {r.canvas?.materials.length ? (
+          <Sec title="MPM의 자료 요약">
+            <ul className="proc">{r.canvas.materials.map((m, i) => <li key={i}><b>{m.source}</b> — {m.summary}<div className="small muted">쓰임: {m.useFor}</div></li>)}</ul>
+          </Sec>
+        ) : null}
+      </>
+    )
 
   if (id === 'intake') {
     const c = r.canvas

@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import type { LikeMinApi, PipelineEvent, UpdateStatus } from '../shared/types'
 
 const invoke = ipcRenderer.invoke.bind(ipcRenderer)
@@ -16,6 +16,19 @@ const api: LikeMinApi = {
     save: (s) => invoke('settings:save', s),
     setKey: (k) => invoke('settings:setKey', k),
     clearKey: () => invoke('settings:clearKey')
+  },
+  files: {
+    pick: () => invoke('files:pick'),
+    pathFor: (file) => webUtils.getPathForFile(file),
+    info: (paths) => invoke('files:info', paths)
+  },
+  links: {
+    login: (url) => invoke('links:login', url),
+    clearSessions: () => invoke('links:clearSessions')
+  },
+  secrets: {
+    has: (name) => invoke('secrets:has', name),
+    set: (name, value) => invoke('secrets:set', name, value)
   },
   cost: {
     get: (force) => invoke('cost:get', force),
@@ -36,7 +49,7 @@ const api: LikeMinApi = {
     list: () => invoke('runs:list'),
     get: (id) => invoke('runs:get', id),
     remove: (id) => invoke('runs:remove', id),
-    start: (brief, depth, demo) => invoke('runs:start', brief, depth, demo),
+    start: (brief, depth, demo, attachments) => invoke('runs:start', brief, depth, demo, attachments),
     cancel: (id) => invoke('runs:cancel', id),
     answer: (id, a) => invoke('runs:answer', id, a),
     feedback: (id, chosen, note) => invoke('runs:feedback', id, chosen, note),

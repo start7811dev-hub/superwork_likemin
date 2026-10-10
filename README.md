@@ -137,13 +137,15 @@ Node.js 20 이상이 필요합니다.
 1. **API 키 등록:** **설정 → Claude API**에 키를 넣고 **검증 후 저장**을 누릅니다. 키는 OS 보안 저장소(macOS 키체인 / Windows DPAPI)에 암호화되어 저장됩니다.
    - 키 없이 **키 없이 데모 보기**를 누르면 API를 호출하지 않고 전체 공정을 체험할 수 있습니다.
 2. **업무 지시:** **공정** 탭 하단 입력창에 배경, 제약, 기한, 원하는 결과물을 자유롭게 적고 **지시하기**(⌘/Ctrl + Enter)를 누릅니다.
+   - **참고 자료 첨부:** **첨부** 버튼이나 끌어다 놓기로 최대 5개까지 첨부합니다 — MD · TXT · CSV · PDF · PPTX · DOCX · XLSX · JPG · PNG · ZIP. ZIP은 안의 파일까지 읽습니다. PDF와 이미지는 MPM이 직접 보고, PPTX(노트 포함)·DOCX·XLSX는 텍스트·표로 읽습니다.
+   - **링크 분석:** 지시문에 링크를 넣으면 MPM이 열어서 분석합니다. GitHub 주소는 저장소 정보·README·파일 구조·핵심 파일을 읽고, 다른 페이지는 앱 안 브라우저로 렌더링해 본문과 화면을 봅니다. 로그인이 필요한 페이지는 링크 옆 **로그인** 버튼으로 먼저 로그인하면 그 세션으로 엽니다(읽기만 함).
    - **깊이:** 빠르게(초안·방향 확인) / 표준 / 깊게(고위험 의사결정)
 3. **공정 보기:** 캠퍼스에서 에이전트들이 일하는 모습을 봅니다. 스테이션을 클릭하면 오른쪽 **인스펙터**에 업무 계약, 보고, 검수 지적, 판단 엔진 기록이 나옵니다.
    - 휠·핀치로 확대, 드래그·두 손가락 스크롤로 이동, 더블클릭이나 ⌂ 버튼으로 기본 보기
    - MPM이 의도를 물으면 질문 패널에 답하거나 **가정대로 진행**을 누릅니다.
 4. **리포트:** 완료되면 **리포트** 탭에서 확인합니다.
    - 탭: 리포트 / SUPER INSIGHT / Factbook / 검증 기록
-   - **내보내기:** PDF · Markdown · HTML · JSON · Factbook
+   - **내보내기:** PDF · Markdown · HTML · JSON · Factbook · **PPT**(Claude의 PPTX 스킬로 보고용 덱 생성, 1~3분)
    - **공유:** Slack · Notion · NAVER WORKS · Webhook · Email · Discord · Teams
 5. **두뇌 학습:** 리포트 맨 아래에 **실제로 채택한 대안과 이유**를 기록하면 MPM이 다음 업무부터 MIN의 판단 성향으로 참고합니다.
 
@@ -165,6 +167,8 @@ Node.js 20 이상이 필요합니다.
 | **Admin API 키** (`sk-ant-admin…`) | 등록하면 비용 배지의 **소진**을 Usage & Cost Admin API의 **조직 실측 비용**으로 표시합니다. 없으면 이 앱의 호출 기록으로 추정합니다. 개인 계정에서는 발급되지 않으며, 조직 설정이 필요합니다. |
 | **예산** | Claude API에는 선불 잔액을 조회하는 기능이 없습니다. 그래서 **잔여 = 예산 − 소진**으로 계산합니다. **설정 → API 비용 · 예산**에서 월 예산 또는 확인한 충전 잔액(과 확인 날짜)을 넣으세요. |
 | **연동 계정** | Slack Webhook, Notion Integration, NAVER WORKS 봇 등. [5. 업무 툴 연동](#5-업무-툴-연동) 참고 |
+| **GitHub 토큰** | 비공개 저장소 링크를 분석할 때만 필요합니다. 공개 저장소는 없이 됩니다. **설정 → 참고 자료 · 링크** |
+| **MCP 서버** | 원격 MCP 서버(Notion · Linear · 사내 도구 등)를 등록하면 Factbook 조사에서 하위 담당이 그 도구로 자료를 찾습니다. **설정 → MCP 서버** (https 원격 엔드포인트만, 로컬 stdio 서버는 아직 지원하지 않음) |
 
 ### 모델과 비용
 | 역할 | 기본 모델 | 메모 |
@@ -177,6 +181,10 @@ Node.js 20 이상이 필요합니다.
 - 비용을 줄이려면 **설정**에서 깊이를 "빠르게"로, 재작업을 0~1회로, 동시 작업 수를 낮추고, 필요하면 Factbook 웹 조사를 끕니다.
 - 공통 두뇌(정체성·교리)는 프롬프트 캐싱으로 반복 비용을 줄입니다.
 - 요청 한도(429)에 걸리면 **동시 작업 수**를 낮추세요.
+
+### 아직 안 되는 것
+- **로그인한 서비스를 직접 조작하는 것**(클릭·입력·결제 등): 지금은 로그인 세션으로 페이지를 **읽기만** 합니다. 사용자 계정으로 행동하는 기능은 단계별 승인 장치를 갖춘 뒤 추가할 예정입니다.
+- **로컬 MCP 서버**(stdio): 원격 MCP 서버만 연결됩니다.
 
 ### 데이터 저장 위치
 모든 데이터는 로컬에만 저장됩니다. 실행 기록, 설정, 두뇌 수정본, 결정 메모리가 여기에 있습니다.
@@ -291,10 +299,12 @@ src/main/
   engine/pipeline.ts   공정 오케스트레이터 (의도 질문 → 분장·위임 → Factbook+업무⇄검수 → 통합 → 시뮬레이션
                        → SUPER INSIGHT → 종합 → 재검증 → 고도화 → MPM 클론 → 전달, 단계별 실행·생략은 MPM 판단)
   engine/prompts.ts    단계별 업무 계약 (책임 · 판단 기준 · 경계 · 판단 엔진 규칙)
-  engine/claude.ts     Claude API: structured outputs, 서버 측 거절 폴백, 웹 검색, 사용량 집계
+  engine/claude.ts     Claude API: structured outputs, 서버 측 거절 폴백, 웹 검색, MCP 커넥터, PPTX 스킬, 사용량 집계
   engine/demo.ts       키 없이 체험하는 데모 엔진
   brain/loader.ts      번들 두뇌 + 사용자 오버레이 + 결정 메모리
+  materials/           참고 자료: 첨부 파일 파서(PDF·이미지·PPTX·DOCX·XLSX·ZIP), 링크 분석(GitHub API·렌더링·로그인 세션)
   cost.ts              비용 모니터 (Cost Admin API 실측 / 로컬 추정, 예산 대비 잔여)
+  secrets.ts           GitHub 토큰·MCP 토큰 암호화 저장
   export/              PDF · MD · HTML · JSON · Factbook 내보내기
   integrations/        Slack · Notion · NAVER WORKS · Webhook · Email + JSON 플러그인
   updater.ts           electron-updater (GitHub Releases)

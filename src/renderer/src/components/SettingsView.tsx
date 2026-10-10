@@ -11,6 +11,9 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
   const [integrations, setIntegrations] = useState<IntegrationInfo[]>([])
   const [version, setVersion] = useState('')
   const [adminKey, setAdminKey] = useState('')
+  const [ghToken, setGhToken] = useState('')
+  const [hasGh, setHasGh] = useState(false)
+  const [mcpDraft, setMcpDraft] = useState({ name: '', url: '', token: '' })
   const [hasAdmin, setHasAdmin] = useState(false)
 
   useEffect(() => {
@@ -21,6 +24,7 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
     void api.integrations.list().then(setIntegrations)
     void api.app.version().then(setVersion)
     void api.cost.hasAdminKey().then(setHasAdmin)
+    void api.secrets.has('githubToken').then(setHasGh)
   }, [])
   if (!s) return null
 
@@ -144,6 +148,55 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
             <option value="en">English</option>
           </select>
         </label>
+      </section>
+
+      <section className="card-sec">
+        <h3>참고 자료 · 링크</h3>
+        <p className="muted small">업무 지시에 넣은 링크는 MPM이 열어서 분석합니다. GitHub 주소는 저장소 정보·README·파일 구조·핵심 파일을 읽고, 그 밖의 페이지는 앱 안 브라우저로 렌더링해 텍스트와 화면을 봅니다.</p>
+        <div className="row">
+          <input type="password" placeholder={hasGh ? 'GitHub 토큰 등록됨 — 바꾸려면 새 토큰 입력' : 'GitHub 토큰 (선택, 비공개 저장소용) ghp_… / github_pat_…'} value={ghToken} onChange={(e) => setGhToken(e.target.value)} />
+          <button className="ghost" disabled={!ghToken} onClick={async () => { await api.secrets.set('githubToken', ghToken.trim()); setGhToken(''); setHasGh(true); onToast('GitHub 토큰을 저장했습니다.') }}>저장</button>
+          {hasGh && <button className="ghost" onClick={async () => { await api.secrets.set('githubToken', null); setHasGh(false) }}>삭제</button>}
+        </div>
+        <div className="row">
+          <span className="muted small" style={{ flex: 1 }}>로그인이 필요한 페이지는 업무 지시창의 링크 옆 <b>로그인</b> 버튼으로 먼저 로그인하세요. 세션은 이 앱 안에만 저장되고, MPM은 읽기만 합니다.</span>
+          <button className="ghost" onClick={async () => { await api.links.clearSessions(); onToast('저장된 로그인 세션을 지웠습니다.') }}>로그인 세션 지우기</button>
+        </div>
+      </section>
+
+      <section className="card-sec">
+        <h3>MCP 서버</h3>
+        <p className="muted small">원격 MCP 서버(Notion · Linear · 사내 도구 등)를 등록하면, Factbook 조사 단계에서 하위 담당이 그 도구로 자료를 찾습니다. URL은 MCP 서버의 원격 엔드포인트(https)여야 하며, 토큰은 OS 보안 저장소에 암호화됩니다.</p>
+        {s.mcpServers.map((m, i) => (
+          <div key={m.name} className="integ">
+            <div className="row" style={{ marginTop: 0 }}>
+              <label style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                <input type="checkbox" checked={m.enabled} onChange={(e) => save({ ...s, mcpServers: s.mcpServers.map((x, k) => (k === i ? { ...x, enabled: e.target.checked } : x)) })} />
+                <b>{m.name}</b>
+              </label>
+              <span className="muted small" style={{ flex: 1 }}>{m.url}</span>
+              <button className="link" onClick={async () => { await api.secrets.set(`mcp:${m.name}`, null); save({ ...s, mcpServers: s.mcpServers.filter((_, k) => k !== i) }) }}>삭제</button>
+            </div>
+          </div>
+        ))}
+        <div className="row">
+          <input placeholder="이름 (예: notion)" value={mcpDraft.name} onChange={(e) => setMcpDraft({ ...mcpDraft, name: e.target.value })} style={{ maxWidth: 160 }} />
+          <input placeholder="https://… MCP 서버 URL" value={mcpDraft.url} onChange={(e) => setMcpDraft({ ...mcpDraft, url: e.target.value })} />
+          <input type="password" placeholder="토큰 (선택)" value={mcpDraft.token} onChange={(e) => setMcpDraft({ ...mcpDraft, token: e.target.value })} style={{ maxWidth: 200 }} />
+          <button
+            className="ghost"
+            disabled={!/^[\w .-]{1,60}$/.test(mcpDraft.name.trim()) || !/^https:\/\//.test(mcpDraft.url.trim()) || s.mcpServers.some((m) => m.name === mcpDraft.name.trim())}
+            onClick={async () => {
+              const name = mcpDraft.name.trim()
+              if (mcpDraft.token.trim()) await api.secrets.set(`mcp:${name}`, mcpDraft.token.trim())
+              await save({ ...s, mcpServers: [...s.mcpServers, { name, url: mcpDraft.url.trim(), enabled: true }] })
+              setMcpDraft({ name: '', url: '', token: '' })
+              onToast(`MCP 서버 "${name}"을 추가했습니다.`)
+            }}
+          >
+            추가
+          </button>
+        </div>
       </section>
 
       <section className="card-sec">

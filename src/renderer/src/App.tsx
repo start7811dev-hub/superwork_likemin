@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useReducer, useRef, useState } from 'react'
-import { estimateCost, type Depth, type PipelineEvent, type RunSummary, type UpdateStatus } from '@shared/types'
+import { estimateCost, type AttachmentInfo, type Depth, type PipelineEvent, type RunSummary, type UpdateStatus } from '@shared/types'
 import { api } from './api'
 import { EMPTY, fromRecord, reduce, type LiveState } from './live'
 import Factory from './components/Factory'
@@ -38,6 +38,16 @@ export default function App() {
   const [toast, setToast] = useState('')
   const [update, setUpdate] = useState<UpdateStatus>({ state: 'idle' })
   const [costPulse, setCostPulse] = useState(0)
+  const [files, setFiles] = useState<AttachmentInfo[]>([])
+  const [dragOver, setDragOver] = useState(false)
+  const links = [...new Set(brief.match(/https?:\/\/[^\s<>"'`)\]}]+/g) ?? [])].map((u) => u.replace(/[.,;:!?]+$/, '')).slice(0, 5)
+  const MAX_FILES = 5
+  const addFiles = (more: AttachmentInfo[]) => {
+    const merged = [...files, ...more.filter((m) => !files.some((f) => f.path === m.path))]
+    if (merged.length > MAX_FILES) showToast(`참고 자료는 ${MAX_FILES}개까지 첨부할 수 있습니다`)
+    setFiles(merged.slice(0, MAX_FILES))
+  }
+  const fmtSize = (n: number) => (n > 1024 * 1024 ? `${(n / 1024 / 1024).toFixed(1)}MB` : `${Math.max(1, Math.round(n / 1024))}KB`)
   const liveRef = useRef(live)
   liveRef.current = live
 
@@ -81,10 +91,11 @@ export default function App() {
     try {
       // runId가 null인 동안 첫 'run started' 이벤트가 상태를 초기화하고 runId를 고정한다.
       dispatch({ type: 'load', state: EMPTY })
-      await api.runs.start(text, depth, demo)
+      await api.runs.start(text, depth, demo, files.map((f) => f.path))
       setSelected('inbox')
       setView('factory')
       setBrief('')
+      setFiles([])
       refreshRuns()
     } catch (e) {
       dispatch({ type: 'load', state: EMPTY })
@@ -178,15 +189,47 @@ export default function App() {
                     {EXAMPLES.map((ex) => <button key={ex} className="chip" onClick={() => setBrief(ex)}>{ex.slice(0, 34)}…</button>)}
                   </div>
                 )}
-                <div className="command-box">
+                <div
+                  className={`command-box${dragOver ? ' drag' : ''}`}
+                  onDragOver={(e) => { e.preventDefault(); if (!running) setDragOver(true) }}
+                  onDragLeave={() => setDragOver(false)}
+                  onDrop={async (e) => {
+                    e.preventDefault()
+                    setDragOver(false)
+                    if (running) return
+                    const paths = [...e.dataTransfer.files].map((f) => api.files.pathFor(f)).filter(Boolean)
+                    if (paths.length) addFiles(await api.files.info(paths))
+                  }}
+                >
+                  {(files.length > 0 || links.length > 0) && (
+                    <div className="attach-row">
+                      {files.map((f) => (
+                        <span key={f.path} className="attach">
+                          <b>{f.ext.toUpperCase()}</b> {f.name} <span className="muted">{fmtSize(f.size)}</span>
+                          <button title="빼기" onClick={() => setFiles(files.filter((x) => x.path !== f.path))}>×</button>
+                        </span>
+                      ))}
+                      {links.map((u) => (
+                        <span key={u} className="attach link">
+                          <b>{/github\.com/.test(u) ? 'GIT' : 'URL'}</b> {u.replace(/^https?:\/\//, '').slice(0, 40)}
+                          {!/github\.com/.test(u) && (
+                            <button className="login" title="로그인이 필요한 페이지면 먼저 로그인하세요. 창을 닫으면 세션이 저장됩니다." onClick={() => void api.links.login(u)}>로그인</button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+                  )}
                   <textarea
                     value={brief}
                     onChange={(e) => setBrief(e.target.value)}
                     onKeyDown={(e) => { if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) void start() }}
-                    placeholder={running ? '공정이 진행 중입니다…' : 'MPM에게 업무를 지시하세요. 배경, 제약, 기한, 원하는 결과물을 자유롭게 적어 주세요.'}
+                    placeholder={running ? '공정이 진행 중입니다…' : 'MPM에게 업무를 지시하세요. 배경, 제약, 기한, 원하는 결과물을 자유롭게 적어 주세요. 링크(깃 주소 등)를 넣으면 열어서 분석하고, 파일은 끌어다 놓아 첨부할 수 있어요.'}
                     disabled={running}
                   />
                   <div className="command-foot">
+                    <button className="ghost attach-btn" disabled={running || files.length >= MAX_FILES} onClick={async () => addFiles(await api.files.pick())} title="MD · PDF · PPTX · DOCX · XLSX · JPG · PNG · ZIP (최대 5개)">
+                      첨부 {files.length > 0 ? `${files.length}/${MAX_FILES}` : ''}
+                    </button>
                     <div className="seg">
                       {DEPTHS.map((d) => (
                         <button key={d.id} className={depth === d.id ? 'on' : ''} onClick={() => setDepth(d.id)} title={d.hint} disabled={running}>{d.label}</button>

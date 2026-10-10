@@ -43,7 +43,7 @@ async function htmlToPdf(html: string): Promise<Buffer> {
   }
 }
 
-export const EXPORTERS: Record<ExportFormat, Exporter> = {
+export const EXPORTERS: Record<Exclude<ExportFormat, 'pptx'>, Exporter> = {
   md: { ext: 'md', label: 'Markdown', render: async (r) => runToMarkdown(r) },
   html: { ext: 'html', label: 'HTML', render: async (r) => runToHtml(r) },
   json: { ext: 'json', label: 'JSON (원본 데이터)', render: async (r) => JSON.stringify(r, null, 2) },
@@ -51,7 +51,16 @@ export const EXPORTERS: Record<ExportFormat, Exporter> = {
   factbook: { ext: 'md', label: 'Factbook (Markdown)', render: async (r) => (r.factbook ? `${factbookToMarkdown(r.factbook, `# Factbook — ${r.title}`)}\n` : '# Factbook 없음\n') }
 }
 
-export async function saveExport(win: BrowserWindow | null, run: RunRecord, format: ExportFormat) {
+/** 저장 위치를 묻고 데이터를 쓴다. PPTX처럼 미리 만든 데이터도 이걸로 저장한다. */
+export async function saveFile(win: BrowserWindow | null, defaultName: string, ext: string, label: string, data: string | Buffer) {
+  const opts = { defaultPath: defaultName, filters: [{ name: label, extensions: [ext] }] }
+  const res = win ? await dialog.showSaveDialog(win, opts) : await dialog.showSaveDialog(opts)
+  if (res.canceled || !res.filePath) return { ok: false }
+  writeFileSync(res.filePath, data)
+  return { ok: true, path: res.filePath }
+}
+
+export async function saveExport(win: BrowserWindow | null, run: RunRecord, format: Exclude<ExportFormat, 'pptx'>) {
   const ex = EXPORTERS[format]
   const safe = run.title.replace(/[\\/:*?"<>|]/g, '_').slice(0, 60)
   const opts = { defaultPath: `${safe}${format === 'factbook' ? '-factbook' : ''}.${ex.ext}`, filters: [{ name: ex.label, extensions: [ex.ext] }] }

@@ -116,6 +116,16 @@ export const ContextCanvasSchema = z.object({
     meaningfulDifference: z.string().describe('타깃의 선택을 바꿀 수 있는 차이의 방향. 차별을 위한 차별 금지')
   }),
   clarifyingQuestions: z.array(z.string()).describe('사용자에게 확인하면 판단이 크게 바뀌는 질문'),
+  materials: z
+    .array(
+      z.object({
+        source: z.string().describe('파일명 또는 URL'),
+        summary: z.string(),
+        keyPoints: z.array(z.string()).describe('판단에 쓸 핵심 사실·수치·제약'),
+        useFor: z.string().describe('이 업무의 어디에 쓰는가')
+      })
+    )
+    .describe('첨부 파일·링크 자료 요약. 자료가 없으면 빈 배열'),
   initialClaims: z.array(z.string()).describe('핵심 주장 가설 1~2개 — 이후 분석으로 검증·수정된다'),
   process: ProcessPlanSchema,
   intent: z.object({

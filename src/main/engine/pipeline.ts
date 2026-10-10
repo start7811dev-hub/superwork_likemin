@@ -47,7 +47,9 @@ import {
 } from '../../shared/types'
 import { brainContext, loadBrain, memoryContext } from '../brain/loader'
 import { saveRun } from '../store/runs'
-import { ClaudeEngine, PipelineCancelled } from './claude'
+import { ClaudeEngine, PipelineCancelled, type McpServer } from './claude'
+import { collectMaterials, textDigest, toBlocks } from '../materials'
+import { getSecret } from '../secrets'
 import { DemoEngine } from './demo'
 import * as P from './prompts'
 
@@ -59,6 +61,8 @@ export interface StartArgs {
   settings: Settings
   brief: string
   depth: Depth
+  /** 첨부 파일 경로 (최대 5개) */
+  attachments?: string[]
   emit: (e: PipelineEvent) => void
 }
 
@@ -146,11 +150,19 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
   const engine = args.apiKey ? new ClaudeEngine(args.apiKey, onUsage) : new DemoEngine(onUsage)
   if (!args.apiKey) log('inbox', '데모 모드: API를 호출하지 않고 준비된 결과로 공정을 시연합니다.', 'warn')
 
-  // 시스템 프롬프트: [두뇌(캐시)] + [과거 결정 메모리] + [역할 지시]
+  // 시스템 프롬프트: [두뇌(캐시)] + [참고 자료 텍스트(캐시)] + [과거 결정 메모리] + [역할 지시]
   const brainBlock = { type: 'text' as const, text: brainContext(brain), cache_control: { type: 'ephemeral' as const } }
   const memory = memoryContext(brain)
   const lang = settings.language === 'en' ? 'Respond in English.' : '모든 내용은 한국어로 작성한다.'
-  const system = (role: string) => [brainBlock, { type: 'text' as const, text: [memory, role, lang].filter(Boolean).join('\n\n') }]
+  let materialBlock: { type: 'text'; text: string; cache_control: { type: 'ephemeral' } } | null = null
+  const system = (role: string) => [
+    brainBlock,
+    ...(materialBlock ? [materialBlock] : []),
+    { type: 'text' as const, text: [memory, role, lang].filter(Boolean).join('\n\n') }
+  ]
+  const mcp: McpServer[] = settings.mcpServers
+    .filter((m) => m.enabled && m.url)
+    .map((m) => ({ name: m.name.replace(/[^\w-]/g, '_').slice(0, 60) || 'mcp', url: m.url, token: getSecret(`mcp:${m.name}`) }))
 
   const validateSynthesis = (s: Synthesis) => {
     if (s.alternatives.length < 3) return `대안이 ${s.alternatives.length}개뿐이다. 본질적으로 다른 대안을 최소 3개 제시하라.`
@@ -162,8 +174,20 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
   persist()
 
   try {
+    /* ---- 0. 참고 자료: 첨부 파일 + 링크 ---- */
+    node('inbox', 'running', '자료 확인 중')
+    const collected = await collectMaterials(args.attachments ?? [], args.brief, (msg) => log('inbox', msg))
+    if (signal.aborted) throw new PipelineCancelled()
+    run.materials = collected.items.map((m) => ({ source: m.source, kind: m.kind, note: m.note }))
+    run.materialErrors = collected.errors
+    for (const e of collected.errors) log('inbox', `자료를 읽지 못함: ${e}`, 'warn')
+    const digest = textDigest(collected.items)
+    if (digest) materialBlock = { type: 'text', text: digest, cache_control: { type: 'ephemeral' } }
+    const intakeBlocks = toBlocks(collected.items)
+    if (collected.items.length) log('inbox', `참고 자료 ${collected.items.length}건 — MPM이 맥락 설계에서 직접 검토합니다`)
+
     /* ---- 1. INTAKE ---- */
-    node('inbox', 'done', '업무 접수')
+    node('inbox', 'done', collected.items.length ? `업무 접수 · 자료 ${collected.items.length}건` : '업무 접수')
     packet('inbox', 'intake', 'brief')
     node('intake', 'running', '의도 파악 · 맥락 설계 중')
     log('intake', 'MPM이 요청을 분석합니다. 판단 엔진이 MIN 문서를 근거로 추론합니다.')
@@ -171,7 +195,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       engine.structured({
         model: models.mpm,
         system: system(P.ROLE.intake),
-        user: P.intakeUser(args.brief, qa),
+        user: intakeBlocks.length ? [...intakeBlocks, { type: 'text' as const, text: P.intakeUser(args.brief, qa) }] : P.intakeUser(args.brief, qa),
         effort: effort.mpm,
         signal,
         schema: ContextCanvasSchema
@@ -298,7 +322,8 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
             effort: 'medium',
             signal
           },
-          settings.webResearch
+          settings.webResearch,
+          mcp
         )
         tr.factbook = await engine.structured({
           model: models.light,

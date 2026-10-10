@@ -13,7 +13,13 @@ import {
   saveRoster
 } from './brain/loader'
 import { answerRun, cancelRun, startRun } from './engine/pipeline'
-import { saveExport } from './export'
+import { saveExport, saveFile } from './export'
+import { ClaudeEngine } from './engine/claude'
+import { ACCEPTED_EXTENSIONS, LIMITS } from './materials/files'
+import { clearLinkSessions, openLoginWindow } from './materials/links'
+import { hasSecret, setSecret } from './secrets'
+import { statSync } from 'node:fs'
+import { extname } from 'node:path'
 import { listIntegrations, pluginDirs, sendIntegration } from './integrations'
 import { clearApiKey, getApiKey, loadSettings, saveSettings, setApiKey } from './settings'
 import { getRun, listRuns, recoverInterrupted, removeRun, saveRun } from './store/runs'
@@ -96,7 +102,7 @@ function registerIpc(): void {
   ipcMain.handle('runs:remove', (_e, id: string) => removeRun(id))
   ipcMain.handle('runs:cancel', (_e, id: string) => cancelRun(id))
   ipcMain.handle('runs:answer', (_e, id: string, a: string[] | null) => answerRun(id, a))
-  ipcMain.handle('runs:start', (_e, brief: string, depth: Depth, demo?: boolean) => {
+  ipcMain.handle('runs:start', (_e, brief: string, depth: Depth, demo?: boolean, attachments?: string[]) => {
     const { key } = getApiKey()
     if (!key && !demo) throw new Error('먼저 설정에서 Claude API 키를 등록하세요.')
     return startRun({
@@ -104,6 +110,7 @@ function registerIpc(): void {
       settings: loadSettings(),
       brief,
       depth,
+      attachments: (attachments ?? []).slice(0, LIMITS.files),
       emit: (ev) => win?.webContents.send('runs:event', ev)
     })
   })
@@ -115,7 +122,35 @@ function registerIpc(): void {
   })
 
   /* 내보내기 / 연동 */
-  ipcMain.handle('export:save', (_e, id: string, format: ExportFormat) => saveExport(win, mustRun(id), format))
+  ipcMain.handle('export:save', async (_e, id: string, format: ExportFormat) => {
+    const run = mustRun(id)
+    if (format !== 'pptx') return saveExport(win, run, format)
+    // PPTX: Anthropic pptx 스킬로 덱 생성 (1~3분)
+    const { key } = getApiKey()
+    if (!key) throw new Error('PPT 생성에는 Claude API 키가 필요합니다.')
+    const engine = new ClaudeEngine(key, () => undefined)
+    const deck = await engine.pptxDeck(loadSettings().models.mpm, runToMarkdown(run), run.title)
+    return saveFile(win, deck.name, 'pptx', 'PowerPoint', deck.data)
+  })
+
+  /* 첨부 파일 · 링크 · 비밀 값 */
+  const infoOf = (p: string) => ({ path: p, name: basename(p), size: statSync(p).size, ext: extname(p).slice(1).toLowerCase() })
+  ipcMain.handle('files:pick', async () => {
+    const res = await dialog.showOpenDialog(win!, {
+      properties: ['openFile', 'multiSelections'],
+      filters: [{ name: '참고 자료', extensions: ACCEPTED_EXTENSIONS }]
+    })
+    return res.filePaths.slice(0, LIMITS.files).map(infoOf)
+  })
+  ipcMain.handle('files:info', (_e, paths: string[]) => paths.slice(0, LIMITS.files).map(infoOf))
+  ipcMain.handle('links:login', (_e, url: string) => openLoginWindow(url, win))
+  ipcMain.handle('links:clearSessions', () => clearLinkSessions())
+  const SECRET_NAMES = /^(githubToken|mcp:[\w .-]{1,60})$/
+  ipcMain.handle('secrets:has', (_e, name: string) => SECRET_NAMES.test(name) && hasSecret(name))
+  ipcMain.handle('secrets:set', (_e, name: string, value: string | null) => {
+    if (!SECRET_NAMES.test(name)) throw new Error('허용되지 않은 이름')
+    setSecret(name, value)
+  })
   ipcMain.handle('export:markdown', (_e, id: string) => runToMarkdown(mustRun(id)))
   ipcMain.handle('integrations:list', () => listIntegrations())
   ipcMain.handle('integrations:send', (_e, id: string, runId: string) =>

@@ -16,6 +16,7 @@ export const ROLE = {
 경계: 해결책을 제안하지 않는다. 정보가 없는 부분은 지어내지 말고 가정(위험도·검증 방법 포함)이나 확인 질문으로 남긴다.
 MIN 체크표(왜 하는가·비용·가치·경쟁·관성·빼기·첫인상/반복)를 캔버스의 why/cost/competition에 반영한다.
 의도 파악(doctrine §0.5 의도 파악 원칙): 의도가 파악되면 intent.clear=true로 하고 질문하지 않는다 — "이렇게 이해했는데 맞나요?"식 확인 금지. 요청이 너무 부족해 의도가 정말 파악되지 않을 때만 clear=false로 하고 의도를 묻는 질문 1~3개를 만든다. 질문자가 개념을 이해하지 못할 수 있음을 전제하고, 질문마다 일상적인 비유(analogy)를 붙인다. 예산·일정 같은 의도 외의 빈칸은 묻지 말고 assumptions로 처리한다.
+참고 자료: <material>로 첨부 파일·링크(PDF·이미지·문서·저장소 등)가 주어지면 직접 검토해 materials에 자료별 요약·핵심 사실·쓰임을 정리한다. 자료로 확인된 내용은 사실로, 자료와 지시가 충돌하면 assumptions에 남긴다. 자료가 이미 답한 것은 의도 질문으로 묻지 않는다. 자료에 전략·정의가 이미 있으면 givenContext에 반영한다.
 공정 설계(doctrine §0.10): process에 이 일의 규모와 구성을 E2E 관점에서 설계한다. 이미 주어진 전략·정의는 givenContext에 두고 다시 도출하지 않는다. Factbook은 외부 사실이 판단을 바꿀 때만(full/light), SUPER INSIGHT 방법론은 과제에 맞는 것만 고른다(aarrr·tows·stp·cdj·jtbd·unit·competition). 시뮬레이션·고도화·클론은 결과의 질을 실제로 바꿀 때만 켠다. 보수적으로 줄이지 말 것 — 줄여서 결과가 나빠지면 줄이지 않는다. 단계마다 이유를 쓴다.
 initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이후 분석이 이를 검증·수정한다.
 판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
@@ -35,7 +36,8 @@ initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이�
 판단 기준: 모든 주장을 fact/inference/hypothesis/opinion으로 정직하게 분류한다. 출처가 없는 수치·사실은 fact로 표시하지 않는다. 낙관적 가정(구현 가능, 반응이 좋을 것)은 근거가 없으면 hypothesis로 둔다.
 경계: 계약 범위 밖의 결론을 내리지 않는다. 최종 대안 선택은 MPM의 몫이다. 모르는 것은 unknowns에 적는다.
 MIN 체크: 비용은 근거 없으면 '확인 필요'로 쓰고, 차별을 위한 차별·불편을 더하는 제안은 하지 않으며, 첫인상과 반복 사용을 구분한다.
-<factbook>이 주어지면 그 안의 신뢰 자료를 근거로 쓰고, source에 Factbook의 출처를 적는다.`,
+<factbook>이 주어지면 그 안의 신뢰 자료를 근거로 쓰고, source에 Factbook의 출처를 적는다.
+<reference_materials>(MIN이 준 첨부·링크 자료)가 있으면 우선 근거로 삼고, source에 자료 이름을 적는다.`,
 
   research: (role: RoleDef) => `[현재 역할: ${role.name} — Factbook 전방위 조사 (doctrine §0.9)]
 자기 업무와 별개로, 이 미션에 관한 사실을 전방위로 조사한다. 웹 검색을 충분히 활용한다.
