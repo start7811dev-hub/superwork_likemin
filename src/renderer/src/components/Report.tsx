@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { estimateCost, type ExportFormat, type IntegrationInfo, type RunRecord } from '@shared/types'
 import { api } from '../api'
 import FactbookView from './FactbookView'
+import Md from './Md'
 import StrategyViz, { Pyramid432 } from './StrategyViz'
 
 const LV: Record<string, string> = { high: '높음', medium: '중간', low: '낮음' }
@@ -151,7 +152,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
         <header>
           <div className="eyebrow">REPORT · {new Date(run.createdAt).toLocaleString('ko-KR')} · ${estimateCost(run.usage).toFixed(2)}{run.verification?.versions.length ? ` · ${run.verification.versions.at(-1)!.label}` : ''}</div>
           <h1>{run.title}</h1>
-          <p className="lead">{s.executiveSummary}</p>
+          <div className="lead"><Md text={s.executiveSummary} /></div>
         </header>
 
         <section className="core-grid">
@@ -173,12 +174,25 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
         <section className="rec">
           <div className="eyebrow">조건부 추천</div>
           <h2>{s.recommendation.pick}. {s.alternatives.find((a) => a.id === s.recommendation.pick)?.name}</h2>
-          <p>{s.recommendation.rationale}</p>
+          <Md text={s.recommendation.rationale} />
           <div className="rec-grid">
-            <div><h5>유효 조건</h5><ul>{s.recommendation.conditions.map((c, i) => <li key={i}>{c}</li>)}</ul></div>
-            <div><h5>전환 계획</h5><p>{s.recommendation.switchTo}</p></div>
+            <div><h5>유효 조건</h5><ul>{s.recommendation.conditions.map((c, i) => <li key={i}><Md text={c} inline /></li>)}</ul></div>
+            <div><h5>전환 계획</h5><Md text={s.recommendation.switchTo} /></div>
           </div>
         </section>
+
+        {s.deliverable?.sections.length ? (
+          <section className="deliverable">
+            <div className="eyebrow">산출물</div>
+            <h2>{s.deliverable.title}</h2>
+            {s.deliverable.sections.map((sec, i) => (
+              <div key={i} className="dl-sec">
+                <h3>{sec.heading}</h3>
+                <Md text={sec.body} />
+              </div>
+            ))}
+          </section>
+        ) : null}
 
         {run.insight && (
           <section className="insight-sum">
@@ -198,14 +212,14 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
                   <span className="tag">{a.archetype}</span>
                 </div>
               </div>
-              <p className="thesis">{a.thesis}</p>
+              <div className="thesis"><Md text={a.thesis} /></div>
               <div className="fit">
                 <span>목표 <Dots n={a.goalFit} /></span>
                 <span>목적 <Dots n={a.purposeFit} /></span>
                 <span>가역성 {LV[a.reversibility]}</span>
                 <span>확신 {LV[a.confidence]}</span>
               </div>
-              <ol className="how">{a.howItWorks.map((h, i) => <li key={i}>{h}</li>)}</ol>
+              <ol className="how">{a.howItWorks.map((h, i) => <li key={i}><Md text={h} inline /></li>)}</ol>
               <div className="cost">
                 <b>비용</b> {a.cost.estimate}
                 {a.cost.needsVerification.length > 0 && <div className="small">확인 필요: {a.cost.needsVerification.join(' · ')}</div>}

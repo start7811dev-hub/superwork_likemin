@@ -32,6 +32,77 @@ function Label({ at, title, sub, tone = 'white', w = 110 }: { at: Pt; title: str
   )
 }
 
+/* ---------- 안내선 콜아웃: 라벨을 도형 양옆 열에 겹치지 않게 놓고 지점과 선으로 잇는다 ---------- */
+interface Callout { x: number; y: number; title: string; sub?: string; tone?: 'white' | 'ink' | 'pink'; w?: number }
+const CALLOUT_H = 34
+const CALLOUT_GAP = 10
+
+function layoutCallouts(items: Callout[], plot: Pt[]) {
+  const xs = plot.map((p) => p[0])
+  const minX = Math.min(...xs), maxX = Math.max(...xs)
+  const mid = (minX + maxX) / 2
+  const sides = { left: [] as Callout[], right: [] as Callout[] }
+  for (const it of [...items].sort((a, b) => a.y - b.y)) (it.x < mid ? sides.left : sides.right).push(it)
+  // 한쪽에 몰리면 균형을 맞춘다
+  while (sides.left.length - sides.right.length > 2) sides.right.push(sides.left.splice(sides.left.findIndex((a) => a.x === Math.max(...sides.left.map((l) => l.x))), 1)[0])
+  while (sides.right.length - sides.left.length > 2) sides.left.push(sides.right.splice(sides.right.findIndex((a) => a.x === Math.min(...sides.right.map((l) => l.x))), 1)[0])
+  const placed: (Callout & { lx: number; ly: number; side: 'left' | 'right'; knee: number })[] = []
+  for (const side of ['left', 'right'] as const) {
+    const group = sides[side].sort((a, b) => a.y - b.y)
+    const ys: number[] = []
+    for (const it of group) ys.push(Math.max(it.y - CALLOUT_H / 2, ys.length ? ys[ys.length - 1] + CALLOUT_H + CALLOUT_GAP : -Infinity))
+    // 라벨 묶음의 중심을 지점들의 중심에 맞춘다
+    if (group.length) {
+      const shift = group.reduce((s, it) => s + it.y, 0) / group.length - (ys.reduce((s, y) => s + y, 0) / ys.length + CALLOUT_H / 2)
+      for (let i = 0; i < ys.length; i++) ys[i] += shift
+    }
+    group.forEach((it, i) => {
+      const w = it.w ?? Math.max(90, [...it.title].length * 11 + 28, [...(it.sub ?? '')].length * 10 + 30)
+      const lx = side === 'left' ? minX - 44 - w : maxX + 44
+      placed.push({ ...it, w, lx, ly: ys[i], side, knee: side === 'left' ? minX - 20 : maxX + 20 })
+    })
+  }
+  const points: Pt[] = placed.flatMap((p) => [[p.lx, p.ly] as Pt, [p.lx + (p.w ?? 0), p.ly + CALLOUT_H] as Pt])
+  return { placed, points }
+}
+
+function Callouts({ placed }: { placed: ReturnType<typeof layoutCallouts>['placed'] }) {
+  return (
+    <g>
+      {placed.map((p, i) => {
+        const cy = p.ly + CALLOUT_H / 2
+        const edge = p.side === 'left' ? p.lx + (p.w ?? 0) : p.lx
+        return (
+          <g key={i}>
+            <path d={`M${p.x} ${p.y} L${p.knee} ${cy} L${edge} ${cy}`} fill="none" stroke="#a3a8b4" strokeWidth={1} />
+            <circle cx={p.x} cy={p.y} r={3} fill="#ffffff" stroke={INK} strokeWidth={1.4} />
+          </g>
+        )
+      })}
+      {placed.map((p, i) => {
+        const fill = p.tone === 'ink' ? INK : p.tone === 'pink' ? PINK : '#ffffff'
+        const ink = !p.tone || p.tone === 'white' ? INK : '#ffffff'
+        return (
+          <g key={`l${i}`} transform={`translate(${p.lx},${p.ly})`}>
+            <rect width={p.w} height={CALLOUT_H} rx={10} fill={fill} stroke="rgba(30,30,60,.10)" filter="url(#vizShadow)" />
+            <text x={12} y={p.sub ? 14 : 21} fontSize={11} fontWeight={700} fill={ink}>{p.title}</text>
+            {p.sub && <text x={12} y={27} fontSize={9.5} fill={!p.tone || p.tone === 'white' ? '#7a8090' : 'rgba(255,255,255,.8)'}>{p.sub}</text>}
+          </g>
+        )
+      })}
+    </g>
+  )
+}
+
+function Axes({ x, y }: { x: { low: string; high: string }; y: { low: string; high: string } }) {
+  return (
+    <div className="axes-legend small">
+      <span><b>가로축</b> {x.low} ← → {x.high}</span>
+      <span><b>세로축</b> {y.low} ↓ ↑ {y.high}</span>
+    </div>
+  )
+}
+
 function Diagram({ id, title, subtitle, viewBox, svg, children }: { id: string; title: string; subtitle: string; viewBox: string; svg: ReactNode; children?: ReactNode }) {
   const ref = useRef<SVGSVGElement>(null)
   const save = () => {
@@ -170,7 +241,15 @@ function Tows({ insight }: { insight: Insight }) {
     { k: 'O 기회', gx: -G, gy: 0, color: '#ffffff' },
     { k: 'T 위협', gx: -G, gy: G, color: '#ffffff' }
   ]
-  const bounds = [...cells, ...heads].flatMap((c) => [iso(c.gx - 1, c.gy - 1, 70), iso(c.gx + 1, c.gy + 1)])
+  const plot = [...cells, ...heads].flatMap((c) => [iso(c.gx - 1, c.gy - 1, 40), iso(c.gx + 1, c.gy + 1)])
+  const towsCallouts = layoutCallouts(
+    cells.map((c) => {
+      const t = iso(c.gx, c.gy + 0.55, 24)
+      return { x: t[0], y: t[1], title: `${c.k} · ${c.items.length}건`, sub: cut(c.items[0] ?? '', 16), tone: c.k === 'SO' ? ('ink' as const) : ('white' as const), w: 190 }
+    }),
+    plot
+  )
+  const bounds = [...plot, ...towsCallouts.points]
   const svg = (
     <>
       {heads.map((h) => (
@@ -180,14 +259,14 @@ function Tows({ insight }: { insight: Insight }) {
         </g>
       ))}
       {cells.map((c) => {
-        const top = iso(c.gx, c.gy, 24)
         return (
           <g key={c.k}>
             <Block gx={c.gx} gy={c.gy} w={1.5} d={1.5} h={24} color={c.color} r={8} />
-            <Label at={[top[0], top[1] - 10]} title={`${c.k} · ${c.items.length}`} sub={cut(c.items[0] ?? '', 11)} tone={c.k === 'SO' ? 'ink' : 'white'} w={104} />
+            <text x={iso(c.gx, c.gy, 24)[0]} y={iso(c.gx, c.gy, 24)[1] + 4} textAnchor="middle" fontSize={12} fontWeight={800} fill={INK}>{c.k}</text>
           </g>
         )
       })}
+      <Callouts placed={towsCallouts.placed} />
     </>
   )
   return (
@@ -216,7 +295,16 @@ function Stp({ insight }: { insight: Insight }) {
   const S = 0.5 // -5~5 → -2.5~2.5 grid
   const map = (x: number, y: number): [number, number] => [x * S, -y * S]
   const corners: Pt[] = [iso(-2.9, -2.9), iso(2.9, -2.9), iso(2.9, 2.9), iso(-2.9, 2.9)]
-  const bounds = [...corners, iso(-3, -3, 80), iso(3, 3), iso(4.2, 0), iso(-4.2, 0), iso(0, -3.8, 20), iso(0, 3.8)]
+  const plot = [...corners, iso(-3, -3, 60), iso(3, 3)]
+  const stpCallouts = layoutCallouts(
+    p.points.map((pt) => {
+      const [gx, gy] = map(pt.x, pt.y)
+      const t = iso(gx, gy, pt.isUs ? 46 : 24)
+      return { x: t[0], y: t[1], title: pt.name, tone: pt.isUs ? ('pink' as const) : ('white' as const) }
+    }),
+    plot
+  )
+  const bounds = [...plot, ...stpCallouts.points]
   const svg = (
     <>
       <polygon points={pts(corners)} fill="#ffffff" stroke="#e6e8ee" strokeWidth={10} strokeLinejoin="round" />
@@ -228,26 +316,25 @@ function Stp({ insight }: { insight: Insight }) {
       ))}
       <line x1={iso(-2.7, 0)[0]} y1={iso(-2.7, 0)[1]} x2={iso(2.7, 0)[0]} y2={iso(2.7, 0)[1]} stroke={INK} strokeWidth={1.4} />
       <line x1={iso(0, 2.7)[0]} y1={iso(0, 2.7)[1]} x2={iso(0, -2.7)[0]} y2={iso(0, -2.7)[1]} stroke={INK} strokeWidth={1.4} />
-      <text x={iso(3.4, 0)[0] + 4} y={iso(3.4, 0)[1] + 8} fontSize={10} fontWeight={700} fill={INK}>{cut(p.xAxis.high, 10)} →</text>
-      <text x={iso(-3.4, 0)[0] - 4} y={iso(-3.4, 0)[1] - 2} fontSize={10} textAnchor="end" fill="#7a8090">← {cut(p.xAxis.low, 10)}</text>
-      <text x={iso(0, -3.4)[0] + 8} y={iso(0, -3.4)[1] - 4} fontSize={10} fontWeight={700} textAnchor="middle" fill={INK}>↑ {cut(p.yAxis.high, 10)}</text>
-      <text x={iso(0, 3.4)[0] - 8} y={iso(0, 3.4)[1] + 16} fontSize={10} textAnchor="middle" fill="#7a8090">{cut(p.yAxis.low, 10)} ↓</text>
+      {/* 축 끝 표시 (축 이름은 아래 범례) */}
+      <text x={iso(2.85, 0)[0] + 6} y={iso(2.85, 0)[1] + 4} fontSize={13} fill={INK}>→</text>
+      <text x={iso(0, -2.85)[0]} y={iso(0, -2.85)[1] - 6} fontSize={13} fill={INK} textAnchor="middle">↑</text>
       {[...p.points].sort((a, b) => (a.x - a.y) - (b.x - b.y)).map((pt, i) => {
         const [gx, gy] = map(pt.x, pt.y)
         const h = pt.isUs ? 46 : 24
-        const top = iso(gx, gy, h)
         return (
           <g key={i}>
             <Block gx={gx} gy={gy} w={0.42} d={0.42} h={h} color={pt.isUs ? PINK : '#cfd3dc'} r={5} />
-            <Label at={[top[0], top[1] - 6]} title={pt.name} tone={pt.isUs ? 'pink' : 'white'} w={Math.max(56, [...pt.name].length * 11 + 18)} />
           </g>
         )
       })}
+      <Callouts placed={stpCallouts.placed} />
     </>
   )
   return (
     <Diagram id="stp" title="STP 2.0 · 초개인화 포지셔닝" subtitle="행동 패턴 · 취향 세분화 → 타깃 → 포지셔닝" viewBox={viewBoxOf(bounds)} svg={svg}>
-      <p className="positioning">“{p.statement}”</p>
+      <Axes x={p.xAxis} y={p.yAxis} />
+      <p className="positioning">“{p.statement.replace(/^["“'‘]+|["”'’]+$/g, '')}”</p>
       <div className="seg-grid">
         {insight.stp.segments.map((s, i) => {
           const isTarget = s.name === insight.stp.target.segment
@@ -311,15 +398,21 @@ function Jtbd({ insight }: { insight: Insight }) {
   })
   const TYPE: Record<string, { c: string; k: string }> = { functional: { c: '#6aa8ff', k: '기능' }, emotional: { c: PINK, k: '감정' }, social: { c: LIME, k: '사회' } }
   const corners: Pt[] = [iso(-3, -3), iso(3, -3), iso(3, 3), iso(-3, 3)]
-  const bounds = [...corners, iso(-3, -3, 110), iso(3.8, 0), iso(0, 3.8), ...jobs.map((j) => iso(j.gx, j.gy, j.opp * 4.5 + 40 + jobs.length * 30))]
+  const plot = [...corners, iso(-3, -3, 100)]
+  const jtbdCallouts = layoutCallouts(
+    jobs.map((j) => {
+      const t = iso(j.gx, j.gy, j.opp * 4.5)
+      return { x: t[0], y: t[1], title: `J${j.i + 1} · ${TYPE[j.type]?.k ?? ''} · 기회 ${j.opp.toFixed(0)}`, sub: cut(j.motivation, 18), w: 200 }
+    }),
+    plot
+  )
+  const bounds = [...plot, ...jtbdCallouts.points]
   const svg = (
     <>
       <polygon points={pts(corners)} fill="#ffffff" stroke="#e6e8ee" strokeWidth={10} strokeLinejoin="round" />
       {/* 기회 영역: 중요도 높고 만족도 낮은 모서리 */}
       <polygon points={pts([iso(0.5, -3), iso(3, -3), iso(3, -0.5), iso(0.5, -0.5)])} fill="none" stroke={INK} strokeDasharray="4 4" strokeWidth={1} />
       <text x={iso(2.9, -3.2)[0]} y={iso(2.9, -3.2)[1] - 4} fontSize={10} fontWeight={700} fill={INK} textAnchor="middle">기회 영역</text>
-      <text x={iso(3.5, 0)[0]} y={iso(3.5, 0)[1] + 6} fontSize={10} fill={INK}>중요도 →</text>
-      <text x={iso(0, 3.5)[0] - 8} y={iso(0, 3.5)[1] + 14} fontSize={10} fill="#7a8090" textAnchor="end">← 만족도 낮음</text>
       {[...jobs].sort((a, b) => a.gx + a.gy - (b.gx + b.gy)).map((j) => {
         const h = j.opp * 4.5
         const top = iso(j.gx, j.gy, h)
@@ -329,21 +422,16 @@ function Jtbd({ insight }: { insight: Insight }) {
           </g>
         )
       })}
-      {/* 라벨은 블록 위에, 겹치지 않게 세로로 엇갈려 배치 */}
-      {[...jobs].sort((a, b) => b.opp - a.opp).map((j, k) => {
-        const top = iso(j.gx, j.gy, j.opp * 4.5)
-        const lift = 8 + k * 30
-        return (
-          <g key={`l${j.i}`}>
-            <line x1={top[0]} y1={top[1]} x2={top[0]} y2={top[1] - lift} stroke="#c9ccd3" strokeDasharray="2 3" />
-            <Label at={[top[0], top[1] - lift]} title={`J${j.i + 1} · ${TYPE[j.type]?.k ?? ''}`} sub={`기회 ${j.opp.toFixed(0)}`} w={84} />
-          </g>
-        )
-      })}
+      <Callouts placed={jtbdCallouts.placed} />
     </>
   )
   return (
     <Diagram id="jtbd" title="JTBD · 기회 지형" subtitle="고객이 고용하는 일 · 높이 = 기회 점수(중요도 + 불만족)" viewBox={viewBoxOf(bounds)} svg={svg}>
+      <div className="axes-legend small">
+        <span><b>중요도</b> 오른쪽 위로 갈수록 높음</span>
+        <span><b>만족도</b> 왼쪽 아래로 갈수록 높음</span>
+        <span><b>높이</b> 기회 점수 = 중요도 + 불만족</span>
+      </div>
       <table className="cmp viz-table">
         <thead><tr><th>#</th><th>When … I want to … so I can …</th><th>지금 고용 중</th><th>해고 계기</th><th>중요/만족</th></tr></thead>
         <tbody>
@@ -420,7 +508,15 @@ function Competition({ insight }: { insight: Insight }) {
   ]
   const items = ROWS.flatMap((r) => c.players.filter((p) => p.kind === r.kind).map((p, i) => ({ ...p, gx: i * 1.9, gy: r.gy })))
   const maxX = Math.max(2, ...items.map((i) => i.gx))
-  const bounds = [...items.flatMap((i) => [iso(i.gx - 1, i.gy - 1, 90), iso(i.gx + 1, i.gy + 1)]), iso(-1.8, -3.2), iso(maxX + 3.2, 0), iso(maxX + 3.2, 2.2), iso(-1.8, 3.2)]
+  const plot = [...items.flatMap((i) => [iso(i.gx - 1, i.gy - 1, 80), iso(i.gx + 1, i.gy + 1)]), iso(-1.8, -3.2), iso(maxX + 1.2, -3.2), iso(maxX + 1.2, 3.2), iso(-1.8, 3.2), ...ROWS.map((r) => { const [x, y] = iso(-1.6, r.gy + 0.9); return [x - [...r.label].length * 11 - 28, y] as Pt })]
+  const compCallouts = layoutCallouts(
+    items.map((p) => {
+      const t = iso(p.gx, p.gy, 8 + p.threat * 12)
+      return { x: t[0], y: t[1], title: p.name, sub: `${ROWS.find((r) => r.kind === p.kind)?.label} · 위협 ${p.threat} · 강도 ${p.strength}`, tone: p.threat >= 4 ? ('pink' as const) : ('white' as const) }
+    }),
+    plot
+  )
+  const bounds = [...plot, ...compCallouts.points]
   const svg = (
     <>
       {ROWS.map((r) => (
@@ -434,14 +530,20 @@ function Competition({ insight }: { insight: Insight }) {
         return (
           <g key={i}>
             <Block gx={p.gx} gy={p.gy} w={0.4 + p.strength * 0.15} d={0.4 + p.strength * 0.15} h={h} color={p.threat >= 4 ? '#ff9fb8' : p.threat >= 3 ? '#ffd38a' : '#cfd3dc'} r={6} />
-            <Label at={[top[0], top[1] - 6]} title={cut(p.name, 9)} sub={`위협 ${p.threat} · 강도 ${p.strength}`} w={96} />
           </g>
         )
       })}
       {ROWS.map((r) => {
-        const [x, y] = iso(maxX + 1.5, r.gy)
-        return <text key={`rl-${r.kind}`} x={x + 6} y={y + 14} fontSize={11} fontWeight={700} fill={INK}>{r.label}</text>
+        const [x, y] = iso(-1.6, r.gy + 0.9)
+        const w = [...r.label].length * 11 + 16
+        return (
+          <g key={`rl-${r.kind}`} transform={`translate(${x - w - 6},${y - 10})`}>
+            <rect width={w} height={20} rx={10} fill="#f3f4f7" />
+            <text x={w / 2} y={14} textAnchor="middle" fontSize={10.5} fontWeight={700} fill="#5a6070">{r.label}</text>
+          </g>
+        )
       })}
+      <Callouts placed={compCallouts.placed} />
     </>
   )
   return (

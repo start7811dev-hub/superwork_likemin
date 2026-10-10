@@ -372,3 +372,39 @@ textarea.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .attach .login { font-size: 11px; border: 1px solid var(--hair); border-radius: 6px; padding: 2px 6px; }
 .attach-btn { font-size: 12px; padding: 6px 12px; margin-right: 8px; }
 .command-foot { gap: 0; }
+/* ---------- 비용 화면 ---------- */
+.cost-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 20px; }
+.cost-head h2 { margin: 4px 0; font-size: 24px; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.cost-kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin: 20px 0 10px; }
+.cost-kpis > div { border-top: 1px solid var(--ink); padding-top: 8px; display: flex; flex-direction: column; gap: 3px; }
+.cost-kpis b { font-size: 20px; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
+.cost-kpis b.warn { color: var(--bad); }
+.budget-line { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+.ubar { display: inline-block; width: 100%; min-width: 60px; height: 6px; background: #eeeff2; border-radius: 99px; overflow: hidden; }
+.ubar.big { height: 8px; max-width: 520px; }
+.ubar i { display: block; height: 100%; background: var(--ink); border-radius: 99px; }
+.cmp.usage td.num, .cmp.usage th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cmp.usage .bar-col { width: 120px; }
+/* ---------- 리포트 본문 타이포그래피 ---------- */
+.md > :first-child { margin-top: 0; }
+.md > :last-child { margin-bottom: 0; }
+.md p { margin: 0 0 10px; line-height: 1.75; }
+.md h3, .md h4 { font-size: 15px; margin: 18px 0 6px; letter-spacing: -.01em; }
+.md ul, .md ol { margin: 4px 0 12px; padding-left: 20px; }
+.md li { margin: 4px 0; line-height: 1.65; }
+.md li::marker { color: var(--muted); }
+.md strong { font-weight: 700; color: var(--ink); }
+.md blockquote { position: relative; margin: 14px 0; padding: 0 0 0 26px; font-size: 16px; font-weight: 600; letter-spacing: -.01em; color: var(--ink); }
+.md blockquote::before { content: '“'; position: absolute; left: 0; top: -6px; font-size: 32px; line-height: 1; font-weight: 700; color: #c9ccd3; }
+.md blockquote p { margin: 4px 0; }
+.md code { font-family: var(--mono); font-size: 12px; background: #f3f3f5; padding: 1px 5px; border-radius: 4px; }
+.md hr { border: 0; border-top: 1px solid var(--hair); margin: 16px 0; }
+.lead { font-size: 16px; color: #2f3238; max-width: 760px; }
+.lead .md p { line-height: 1.8; }
+.deliverable { margin-top: 36px; border-top: 1px solid var(--ink); padding-top: 18px; }
+.deliverable h2 { margin: 4px 0 8px !important; font-size: 22px !important; letter-spacing: -.02em; }
+.dl-sec { padding: 14px 0; border-top: 1px solid var(--hair); max-width: 760px; }
+.dl-sec:first-of-type { border-top: 0; }
+.dl-sec h3 { margin: 0 0 8px; font-size: 16px; }
+.axes-legend { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 8px 0 10px; border-bottom: 1px solid var(--hair); margin-bottom: 10px; color: var(--ink-2); }
+.axes-legend b { color: var(--muted); font-weight: 600; margin-right: 4px; }

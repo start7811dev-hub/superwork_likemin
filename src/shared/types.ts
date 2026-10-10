@@ -230,6 +230,41 @@ export interface IntegrationInfo {
   source: 'builtin' | 'plugin'
 }
 
+/** 사용량 장부 한 줄 (API 호출 1회, 또는 장부 이전 실행의 모델별 합계) */
+export interface LedgerEntry {
+  at: string
+  runId?: string | null
+  kind: 'run' | 'export' | 'validate'
+  model: string
+  calls?: number
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  cost: number
+}
+
+export interface UsageRow {
+  key: string
+  label?: string
+  status?: string
+  firstAt?: string
+  calls: number
+  input: number
+  output: number
+  cacheRead: number
+  cacheWrite: number
+  cost: number
+}
+
+export interface UsageReport {
+  total: Omit<UsageRow, 'key'>
+  months: UsageRow[]
+  days: UsageRow[]
+  projects: UsageRow[]
+  models: UsageRow[]
+}
+
 export interface CostStatus {
   /** 기간 내 소진 비용 (USD) */
   spent: number
@@ -285,6 +320,7 @@ export interface LikeMinApi {
     get(force?: boolean): Promise<CostStatus>
     setAdminKey(key: string | null): Promise<{ ok: boolean; message: string }>
     hasAdminKey(): Promise<boolean>
+    report(): Promise<UsageReport>
   }
   brain: {
     get(): Promise<BrainSnapshot>

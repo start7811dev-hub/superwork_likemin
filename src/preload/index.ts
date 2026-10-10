@@ -33,7 +33,8 @@ const api: LikeMinApi = {
   cost: {
     get: (force) => invoke('cost:get', force),
     setAdminKey: (k) => invoke('cost:setAdminKey', k),
-    hasAdminKey: () => invoke('cost:hasAdminKey')
+    hasAdminKey: () => invoke('cost:hasAdminKey'),
+    report: () => invoke('cost:report')
   },
   brain: {
     get: () => invoke('brain:get'),

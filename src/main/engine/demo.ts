@@ -287,7 +287,14 @@ const simulation: Simulation = {
 }
 
 const synthesis: Synthesis = {
-  executiveSummary: '구독 전환의 핵심은 할인보다 “저녁 결정 대행”의 신뢰다. 세 가지 본질적으로 다른 경로 중, 작게 검증하고 확장하는 B를 조건부 추천한다.',
+  executiveSummary: '구독을 붙잡는 건 할인이 아니라 “저녁을 대신 정해 준다”는 신뢰다. 그래서 사내 단체 파일럿(B)으로 작게 검증하고, 반응이 확인되면 결정 대행 구독(A)으로 넓힌다.',
+  deliverable: {
+    title: '초기 고객 확보 실행안',
+    sections: [
+      { heading: '핵심 메시지', body: '> 오늘 저녁, 고민은 저희가 할게요.\n\n- 약속하는 것: 메뉴 결정에서 해방\n- 약속하지 않는 것: 최저가' },
+      { heading: '4주 파일럿', body: '1. **1주차** HR 담당자 10명 인터뷰\n2. 2주차 제휴사 2곳 확정\n3. 3~4주차 사무실 픽업으로 첫 박스 배송\n\n성공 기준은 2회차 결제 유지율 60%입니다.' }
+    ]
+  },
   coreRestated: { goal: canvas.goal, purpose: canvas.purpose, brand: canvas.core.brand, consumer: canvas.core.consumer, market: canvas.core.market },
   alternatives: [
     { id: 'A', name: '결정 대행 구독', archetype: '코어 강화형', thesis: '메뉴 고민 해소를 핵심 가치로, 취향 학습형 구독', influencePath: '개인화된 저녁이 “나를 아는 서비스” 경험으로 지인 추천 확산', cost: { estimate: '확인 필요 (개발 2~3개월 인력 기준 추정)', breakdown: ['큐레이션 개발 인력', '메뉴 R&D', '기회비용: 런칭 지연'], needsVerification: ['개발 인력 단가', '메뉴 원가'], valueShiftsWhen: ['자금 여력이 18개월 이상이면 학습 투자로서 가치 상승', '경쟁사가 유사 기능을 먼저 내면 가치 하락'] }, differentiation: '메뉴 수가 아니라 결정을 대신해 주는 정확도', keepInertia: '주간 장보기 리듬(주 1회 수령)', innovation: '취향 학습 기반 자동 큐레이션', omit: ['메뉴 직접 선택 화면(기본값에서 제외)'], firstImpression: '온보딩 3문항 후 “내 취향” 첫 박스', repeatUse: '건너뛰기·자동 조정으로 피로 없는 반복', howItWorks: ['온보딩 취향 진단', '주간 자동 큐레이션', '건너뛰기 무제한'], brandImpact: '“생각 안 해도 되는 저녁” 약속', consumerImpact: '결정 피로 감소', marketImpact: 'PB와 가격이 아닌 경험으로 경쟁', goalFit: 4, purposeFit: 5, tradeoffs: ['개발 비용'], edgeCases: ['취향 급변'], risks: ['큐레이션 품질'], killCriteria: ['2회차 유지율 40% 미만'], reversibility: 'medium', confidence: 'medium', firstSteps: ['취향 진단 프로토타입'] },

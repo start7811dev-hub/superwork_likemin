@@ -25,6 +25,7 @@ import { clearApiKey, getApiKey, loadSettings, saveSettings, setApiKey } from '.
 import { getRun, listRuns, recoverInterrupted, removeRun, saveRun } from './store/runs'
 import { initUpdater } from './updater'
 import { getCostStatus, hasAdminKey, setAdminKey } from './cost'
+import { usageReport } from './ledger'
 
 let win: BrowserWindow | null = null
 
@@ -78,6 +79,7 @@ function registerIpc(): void {
   ipcMain.handle('cost:get', (_e, force?: boolean) => getCostStatus(force))
   ipcMain.handle('cost:setAdminKey', (_e, key: string | null) => setAdminKey(key))
   ipcMain.handle('cost:hasAdminKey', () => hasAdminKey())
+  ipcMain.handle('cost:report', () => usageReport())
 
   /* 두뇌 */
   ipcMain.handle('brain:get', () => loadBrain())
@@ -128,7 +130,7 @@ function registerIpc(): void {
     // PPTX: Anthropic pptx 스킬로 덱 생성 (1~3분)
     const { key } = getApiKey()
     if (!key) throw new Error('PPT 생성에는 Claude API 키가 필요합니다.')
-    const engine = new ClaudeEngine(key, () => undefined)
+    const engine = new ClaudeEngine(key, () => undefined, { runId: run.id, kind: 'export' })
     const deck = await engine.pptxDeck(loadSettings().models.mpm, runToMarkdown(run), run.title)
     return saveFile(win, deck.name, 'pptx', 'PowerPoint', deck.data)
   })

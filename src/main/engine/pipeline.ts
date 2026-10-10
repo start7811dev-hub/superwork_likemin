@@ -147,7 +147,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     run.usage = structuredClone(usage)
     emit({ type: 'usage', runId, usage: run.usage })
   }
-  const engine = args.apiKey ? new ClaudeEngine(args.apiKey, onUsage) : new DemoEngine(onUsage)
+  const engine = args.apiKey ? new ClaudeEngine(args.apiKey, onUsage, { runId, kind: 'run' }) : new DemoEngine(onUsage)
   if (!args.apiKey) log('inbox', '데모 모드: API를 호출하지 않고 준비된 결과로 공정을 시연합니다.', 'warn')
 
   // 시스템 프롬프트: [두뇌(캐시)] + [참고 자료 텍스트(캐시)] + [과거 결정 메모리] + [역할 지시]

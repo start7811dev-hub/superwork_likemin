@@ -251,7 +251,18 @@ export const AlternativeSchema = z.object({
 export type Alternative = z.infer<typeof AlternativeSchema>
 
 export const SynthesisSchema = z.object({
-  executiveSummary: z.string(),
+  executiveSummary: z.string().describe('3~5문장. 결론과 그 이유만. 세부 내용·카피·표는 deliverable과 대안에 쓴다'),
+  deliverable: z
+    .object({
+      title: z.string().describe('산출물 이름. 예: 후킹 메시지 체계'),
+      sections: z.array(
+        z.object({
+          heading: z.string(),
+          body: z.string().describe('마크다운. 짧은 문단, 목록, 문단당 강조 1개 이내, > 인용은 실제 카피·원문에만')
+        })
+      )
+    })
+    .describe('MIN이 요청한 실제 산출물(메시지·카피·기획안·구성안 등)을 바로 쓸 수 있는 형태로. 추천 대안 기준. 요청이 판단만이면 빈 sections'),
   coreRestated: z.object({
     goal: z.string(),
     purpose: z.string(),

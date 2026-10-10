@@ -5,12 +5,13 @@ import { EMPTY, fromRecord, reduce, type LiveState } from './live'
 import Factory from './components/Factory'
 import QuestionGate from './components/QuestionGate'
 import CostBadge from './components/CostBadge'
+import CostView from './components/CostView'
 import Inspector from './components/Inspector'
 import Report from './components/Report'
 import Brain from './components/Brain'
 import SettingsView from './components/SettingsView'
 
-type View = 'factory' | 'report' | 'brain' | 'settings'
+type View = 'factory' | 'report' | 'brain' | 'cost' | 'settings'
 
 type Action = { type: 'event'; e: PipelineEvent } | { type: 'load'; state: LiveState }
 const liveReducer = (s: LiveState, a: Action) => (a.type === 'load' ? a.state : reduce(s, a.e))
@@ -155,11 +156,11 @@ export default function App() {
       <main className="main">
         <header className="topbar">
           <nav className="views">
-            {([['factory', '공정'], ['report', '리포트'], ['brain', '두뇌'], ['settings', '설정']] as [View, string][]).map(([k, l]) => (
+            {([['factory', '공정'], ['report', '리포트'], ['brain', '두뇌'], ['cost', '비용'], ['settings', '설정']] as [View, string][]).map(([k, l]) => (
               <button key={k} className={view === k ? 'on' : ''} onClick={() => setView(k)}>{l}</button>
             ))}
           </nav>
-          <CostBadge pulse={costPulse} onOpenSettings={() => setView('settings')} />
+          <CostBadge pulse={costPulse} onOpenSettings={() => setView('cost')} />
           <div className="status">
             {running && <span className="live-dot" />}
             <span className="muted small">
@@ -253,6 +254,7 @@ export default function App() {
 
         {view === 'report' && (live.record ? <Report run={live.record} onToast={showToast} /> : <div className="report empty"><p>왼쪽 기록에서 리포트를 선택하거나 새 업무를 지시하세요.</p></div>)}
         {view === 'brain' && <Brain onToast={showToast} />}
+        {view === 'cost' && <CostView onOpenSettings={() => setView('settings')} />}
         {view === 'settings' && <SettingsView onToast={showToast} onKeyChange={setHasKey} update={update} />}
       </main>
 

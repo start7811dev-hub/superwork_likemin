@@ -27,6 +27,8 @@ export function runToMarkdown(run: RunRecord): string {
       `## 코어\n\n| 축 | 내용 |\n| --- | --- |\n| 목표 | ${cell(s.coreRestated.goal)} |\n| 목적 | ${cell(s.coreRestated.purpose)} |\n| 브랜드 | ${cell(s.coreRestated.brand)} |\n| 소비자 | ${cell(s.coreRestated.consumer)} |\n| 시장 | ${cell(s.coreRestated.market)} |`
     )
     if (run.answers?.length) out.push(`## MPM의 질문과 MIN의 답\n\n${run.answers.map((x) => `- **${x.question}** — ${x.answer}`).join('\n')}`)
+    if (s.deliverable?.sections.length)
+      out.push(`## 산출물: ${s.deliverable.title}\n\n${s.deliverable.sections.map((x) => `### ${x.heading}\n\n${x.body}`).join('\n\n')}`)
     const rec = s.recommendation
     out.push(
       `## 조건부 추천: ${rec.pick}\n\n${rec.rationale}\n\n**유효 조건**\n${list(rec.conditions)}\n\n**전환 계획:** ${rec.switchTo}`

@@ -9,7 +9,7 @@ import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import type { CostStatus } from '../shared/types'
 import { loadSettings } from './settings'
-import { listRuns } from './store/runs'
+import { spentSince } from './ledger'
 import { userDir } from './paths'
 
 const adminKeyPath = () => join(userDir(), 'admin-key.bin')
@@ -98,14 +98,11 @@ function periodStart(): { start: Date; label: string } {
     if (!Number.isNaN(d.getTime())) return { start: d, label: `${budget.since} 이후` }
   }
   const now = new Date()
-  return { start: new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)), label: `${now.getMonth() + 1}월` }
+  return { start: new Date(now.getFullYear(), now.getMonth(), 1), label: `${now.getMonth() + 1}월` }
 }
 
-function localSpent(start: Date): number {
-  return listRuns()
-    .filter((r) => !r.demo && new Date(r.createdAt) >= start)
-    .reduce((sum, r) => sum + r.costUsd, 0)
-}
+/** 이 앱의 사용량 장부 기준 (실패한 실행·삭제한 기록·PPT 생성 포함) */
+const localSpent = (start: Date) => spentSince(start)
 
 let cache: { at: number; value: CostStatus } | null = null
 

@@ -8,7 +8,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
 import { jsonrepair } from 'jsonrepair'
 import { z } from 'zod'
-import type { Effort, UsageSummary } from '../../shared/types'
+import type { Effort, LedgerEntry, UsageSummary } from '../../shared/types'
+import { recordCall } from '../ledger'
 
 type BetaParams = Anthropic.Beta.Messages.MessageCreateParamsNonStreaming
 type BetaMessage = Anthropic.Beta.Messages.BetaMessage
@@ -135,7 +136,9 @@ export class ClaudeEngine {
 
   constructor(
     apiKey: string,
-    private onUsage: (u: UsageSummary) => void
+    private onUsage: (u: UsageSummary) => void,
+    /** 사용량 장부에 남길 맥락 */
+    private ledgerCtx: { runId?: string; kind: LedgerEntry['kind'] } = { kind: 'run' }
   ) {
     this.client = new Anthropic({ apiKey, maxRetries: 4 })
   }
@@ -149,6 +152,19 @@ export class ClaudeEngine {
     m.cacheWrite += u.cache_creation_input_tokens ?? 0
     m.calls += 1
     this.onUsage(this.usage)
+    try {
+      recordCall({
+        runId: this.ledgerCtx.runId ?? null,
+        kind: this.ledgerCtx.kind,
+        model: msg.model,
+        input: u.input_tokens,
+        output: u.output_tokens,
+        cacheRead: u.cache_read_input_tokens ?? 0,
+        cacheWrite: u.cache_creation_input_tokens ?? 0
+      })
+    } catch {
+      /* 장부 기록 실패가 작업을 막지 않게 */
+    }
   }
 
   private baseParams(model: string, effort: Effort, maxTokens: number): Partial<BetaParams> {

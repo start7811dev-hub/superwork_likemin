@@ -26,12 +26,16 @@ export default function CostBadge({ pulse, onOpenSettings }: { pulse: number; on
   const ratio = c.budget > 0 ? Math.min(1, c.spent / c.budget) : 0
   const level = c.remaining === null ? 'none' : c.remaining <= 0 ? 'over' : ratio > 0.9 ? 'warn' : 'ok'
   return (
-    <button className={`cost-badge lv-${level}`} onClick={onOpenSettings} title={c.error ?? `${c.source === 'admin' ? 'Cost API 실측 (조직 전체)' : '이 앱의 호출 기록 기반 추정'} · ${new Date(c.updatedAt).toLocaleTimeString('ko-KR')} 갱신`}>
+    <button className={`cost-badge lv-${level}`} onClick={onOpenSettings} title={c.error ?? `클릭하면 월별·일별·프로젝트별 소진을 봅니다 · ${c.source === 'admin' ? 'Cost API 실측' : '호출 기록 기준'} · ${new Date(c.updatedAt).toLocaleTimeString('ko-KR')} 갱신`}>
       <span className="cost-k">API {c.periodLabel}</span>
-      <span className="cost-v">소진 <b>${c.spent.toFixed(2)}</b></span>
+      <span className="cost-v">
+        소진 <b>${c.spent.toFixed(2)}</b>
+        {c.budget > 0 && <span className="muted"> / ${c.budget.toFixed(0)}</span>}
+      </span>
       <span className="cost-sep" />
       <span className="cost-v">
         잔여 <b>{c.remaining === null ? '예산 미설정' : `$${c.remaining.toFixed(2)}`}</b>
+        {c.budget > 0 && <span className="muted"> ({Math.max(0, 100 - ratio * 100).toFixed(0)}%)</span>}
       </span>
       {c.budget > 0 && (
         <span className="cost-bar"><i style={{ width: `${ratio * 100}%` }} /></span>
