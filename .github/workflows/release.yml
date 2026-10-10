@@ -47,6 +47,34 @@ jobs:
           echo "$ID2" | base64 --decode > brain/identity/02-min-skill.md
       - run: npm run typecheck
       - run: npm run build
+      # macOS: 서명용 키체인을 직접 만들어 Developer ID 인증서를 넣는다 (electron-builder의 자동 키체인 처리는 최신 러너에서 실패함)
+      - name: Prepare signing keychain (macOS)
+        if: runner.os == 'macOS'
+        shell: bash
+        env:
+          P12_B64: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          P12_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+        run: |
+          if [ -z "$P12_B64" ]; then echo "인증서 시크릿 없음 → ad-hoc 서명으로 진행"; exit 0; fi
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KC_PASS="$(openssl rand -hex 24)"
+          echo "$P12_B64" | base64 --decode > "$RUNNER_TEMP/cert.p12"
+          security create-keychain -p "$KC_PASS" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KC_PASS" "$KEYCHAIN"
+          if ! security import "$RUNNER_TEMP/cert.p12" -P "$P12_PASSWORD" -A -t cert -f pkcs12 -k "$KEYCHAIN"; then
+            echo "::error::인증서(.p12) 가져오기 실패 — MAC_CERT_PASSWORD가 .p12 내보내기 암호와 같은지 확인하세요"; exit 1
+          fi
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KC_PASS" "$KEYCHAIN" > /dev/null
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          rm -f "$RUNNER_TEMP/cert.p12"
+          COUNT=$(security find-identity -v -p codesigning "$KEYCHAIN" | grep -c "Developer ID Application" || true)
+          if [ "$COUNT" = "0" ]; then
+            echo "::error::키체인에 Developer ID Application 서명 ID가 없습니다 — .p12에 비밀 키가 함께 들어 있는지 확인하세요"; exit 1
+          fi
+          security find-identity -v -p codesigning "$KEYCHAIN" | grep "Developer ID Application" | sed 's/^ *[0-9]*) [0-9A-F]* //'
+          echo "SIGNING_KEYCHAIN=$KEYCHAIN" >> "$GITHUB_ENV"
+
       - name: Build & publish installers
         shell: bash
         env:
@@ -62,8 +90,10 @@ jobs:
           WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
         run: |
           # 인증서가 있으면 Developer ID 서명 + Apple 공증 → 경고 없이 열리고 macOS 자동 업데이트 동작
+          # 서명 ID는 앞 단계에서 만든 키체인에서 찾는다 (CSC_LINK를 넘기면 electron-builder가 다시 키체인을 만들다 실패함)
           MAC_EXTRA="-c.mac.notarize=true"
-          if [ -z "$CSC_LINK" ]; then
+          if [ -n "$SIGNING_KEYCHAIN" ]; then unset CSC_LINK CSC_KEY_PASSWORD; export CSC_KEYCHAIN="$SIGNING_KEYCHAIN"; fi
+          if [ -z "$SIGNING_KEYCHAIN" ]; then
             # 인증서가 없으면 앱 전체에 임시(ad-hoc) 서명을 건다.
             # 서명이 아예 없으면 Apple Silicon이 "손상된 파일"로 실행을 막는다.
             export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD
@@ -74,6 +104,10 @@ jobs:
             npx electron-builder --mac --publish always $MAC_EXTRA
             # 서명 검증: 실패하면 릴리스를 공개하지 않는다
             for app in release/*/mac*/*.app; do codesign --verify --deep --strict "$app"; done
+            if [ -n "$SIGNING_KEYCHAIN" ]; then
+              # 공증 검증: 공증 티켓이 붙었고 Gatekeeper가 통과시키는지
+              for app in release/*/mac*/*.app; do xcrun stapler validate "$app" && spctl -a -vv "$app"; done
+            fi
           else
             npx electron-builder --win --publish always
           fi
