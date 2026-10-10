@@ -33,7 +33,7 @@ export async function setAdminKey(key: string | null): Promise<{ ok: boolean; me
   }
   const trimmed = key.trim()
   try {
-    await fetchCost(trimmed, new Date(Date.now() - 86400000))
+    await fetchCost(trimmed, new Date(Date.now() - 7 * 86_400_000))
   } catch (err) {
     return { ok: false, message: `검증 실패: ${(err as Error).message}` }
   }
@@ -43,12 +43,41 @@ export async function setAdminKey(key: string | null): Promise<{ ok: boolean; me
   return { ok: true, message: 'Admin 키를 저장했습니다. 이제 조직 실측 비용을 표시합니다.' }
 }
 
-/** Cost API: 일 단위 버킷, 최대 31개/페이지. amount는 센트 단위 문자열. */
+const utcMidnight = (d: Date) => new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
+
+/**
+ * Cost API: 일(UTC 자정) 단위 버킷, 최대 31개/페이지. amount는 센트 단위 문자열.
+ * 버킷 경계에 맞추지 않으면 "시작 이후에 시작하고 종료 전에 끝나는" 버킷이 0개가 되어
+ * 400(Invalid date range)이 나므로, 시작은 그날 자정, 끝은 내일 자정으로 맞춘다.
+ */
 async function fetchCost(adminKey: string, start: Date): Promise<number> {
+  const from = utcMidnight(start)
+  const to = new Date(utcMidnight(new Date()).getTime() + 86_400_000)
+  // 1순위: 내일 자정까지(오늘 버킷 포함) / 2순위: ending_at 생략(API 기본값)
+  const variants: Record<string, string>[] = [
+    { starting_at: from.toISOString(), ending_at: to.toISOString() },
+    { starting_at: from.toISOString() }
+  ]
+  let lastDateError = ''
+  for (const range of variants) {
+    try {
+      return await sumCost(adminKey, range)
+    } catch (err) {
+      const msg = (err as Error).message
+      if (!/date range|ending date|starting date/i.test(msg)) throw err
+      lastDateError = msg
+    }
+  }
+  // 아직 집계할 온전한 버킷이 없는 경우(예: 매월 1일 자정 직후) — 소진 0으로 본다
+  console.warn('[cost] no complete buckets yet:', lastDateError)
+  return 0
+}
+
+async function sumCost(adminKey: string, range: Record<string, string>): Promise<number> {
   let page: string | null = null
   let cents = 0
   for (let i = 0; i < 24; i++) {
-    const q = new URLSearchParams({ starting_at: start.toISOString(), ending_at: new Date().toISOString(), bucket_width: '1d', limit: '31' })
+    const q = new URLSearchParams({ ...range, bucket_width: '1d', limit: '31' })
     if (page) q.set('page', page)
     const res = await fetch(`https://api.anthropic.com/v1/organizations/cost_report?${q}`, {
       headers: { 'x-api-key': adminKey, 'anthropic-version': '2023-06-01', 'user-agent': 'SuperWorkLikeMin/0.2' }
