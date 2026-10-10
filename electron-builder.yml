@@ -1,0 +1,49 @@
+appId: com.likemin.superwork
+productName: SUPER WORK - LIKE MIN
+# GitHub은 업로드 파일명의 공백을 바꿔 버려 자동 업데이트가 깨지므로 공백 없는 이름을 쓴다
+artifactName: SuperWork-LikeMin-${version}-${arch}.${ext}
+copyright: Copyright © 2026 MIN
+directories:
+  output: release/${version}
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+# 두뇌 팩과 선언형 플러그인은 asar 밖 리소스로 포함 → 앱 업데이트 시 함께 교체
+extraResources:
+  - from: brain
+    to: brain
+  - from: plugins
+    to: plugins
+asarUnpack:
+  - resources/**
+mac:
+  category: public.app-category.productivity
+  target:
+    - target: dmg
+      arch: [arm64, x64]
+    - target: zip          # 자동 업데이트(Squirrel.Mac)에 필요
+      arch: [arm64, x64]
+  hardenedRuntime: true
+  # 배포 시 Apple Developer ID로 서명·공증해야 Gatekeeper 경고가 없습니다.
+  # notarize: true
+dmg:
+  artifactName: SuperWork-LikeMin-${version}-${arch}.${ext}
+win:
+  target:
+    - target: nsis
+      arch: [x64, arm64]
+  artifactName: SuperWork-LikeMin-Setup-${version}.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  shortcutName: LIKE MIN
+# 자동 업데이트 채널. GitHub Releases에 올리면 설치된 앱이 자동으로 새 버전을 받습니다.
+# 태그(v*)를 푸시하면 .github/workflows/release.yml이 빌드·업로드합니다.
+publish:
+  provider: github
+  owner: start7811dev-hub
+  repo: superwork_likemin
+  releaseType: release

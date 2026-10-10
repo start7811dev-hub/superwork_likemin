@@ -1,0 +1,10 @@
+node_modules/
+out/
+release/
+shots/
+.DS_Store
+*.log
+.env
+# MIN의 자기 분석 원문은 공개 저장소에 올리지 않는다 (릴리스 빌드 때 GitHub Secrets에서 주입)
+brain/identity/*.md
+!brain/identity/README.md

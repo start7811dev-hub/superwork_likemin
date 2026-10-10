@@ -1,0 +1,23 @@
+{
+  "id": "discord",
+  "name": "Discord",
+  "description": "Discord 채널 Webhook으로 요약과 추천을 공유 (선언형 플러그인 예시)",
+  "fields": [
+    { "key": "webhookUrl", "label": "Discord Webhook URL", "secret": true, "placeholder": "https://discord.com/api/webhooks/…" }
+  ],
+  "request": {
+    "method": "POST",
+    "url": "{{webhookUrl}}",
+    "body": {
+      "username": "LIKE MIN",
+      "embeds": [
+        {
+          "title": "{{title}}",
+          "description": "{{summary}}",
+          "color": 15629611,
+          "fields": [{ "name": "조건부 추천", "value": "{{recommendation}}" }]
+        }
+      ]
+    }
+  }
+}

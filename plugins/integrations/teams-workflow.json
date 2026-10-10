@@ -1,0 +1,29 @@
+{
+  "id": "teams-workflow",
+  "name": "Microsoft Teams",
+  "description": "Teams Workflows(Power Automate) Webhook으로 Adaptive Card 전송",
+  "fields": [
+    { "key": "webhookUrl", "label": "Workflow Webhook URL", "secret": true, "placeholder": "https://…logic.azure.com/…" }
+  ],
+  "request": {
+    "method": "POST",
+    "url": "{{webhookUrl}}",
+    "body": {
+      "type": "message",
+      "attachments": [
+        {
+          "contentType": "application/vnd.microsoft.card.adaptive",
+          "content": {
+            "type": "AdaptiveCard",
+            "version": "1.4",
+            "body": [
+              { "type": "TextBlock", "text": "{{title}}", "weight": "Bolder", "size": "Large", "wrap": true },
+              { "type": "TextBlock", "text": "{{summary}}", "wrap": true },
+              { "type": "TextBlock", "text": "조건부 추천: {{recommendation}}", "wrap": true, "color": "Accent" }
+            ]
+          }
+        }
+      ]
+    }
+  }
+}

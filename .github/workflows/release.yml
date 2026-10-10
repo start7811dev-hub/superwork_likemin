@@ -1,0 +1,54 @@
+# 태그(v*)를 푸시하면 macOS·Windows 설치파일을 빌드해 GitHub Releases에 올립니다.
+# 설치된 앱은 electron-updater로 이 Releases를 확인해 자동 업데이트합니다.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Inject MIN identity (private, from Secrets)
+        shell: bash
+        env:
+          ID1: ${{ secrets.MIN_IDENTITY_01_B64 }}
+          ID2: ${{ secrets.MIN_IDENTITY_02_B64 }}
+        run: |
+          if [ -z "$ID1" ] || [ -z "$ID2" ]; then echo "::error::MIN_IDENTITY secrets are missing"; exit 1; fi
+          echo "$ID1" | base64 --decode > brain/identity/01-min-introduce.md
+          echo "$ID2" | base64 --decode > brain/identity/02-min-skill.md
+      - run: npm run typecheck
+      - run: npm run build
+      - name: Build & publish installers
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # macOS 서명·공증 (선택). 시크릿이 없으면 서명 없이 빌드합니다.
+          CSC_LINK: ${{ secrets.MAC_CERT_P12_BASE64 }}
+          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERT_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          # Windows 코드 서명 (선택)
+          WIN_CSC_LINK: ${{ secrets.WIN_CERT_P12_BASE64 }}
+          WIN_CSC_KEY_PASSWORD: ${{ secrets.WIN_CERT_PASSWORD }}
+        run: |
+          if [ -z "$CSC_LINK" ]; then export CSC_IDENTITY_AUTO_DISCOVERY=false; unset CSC_LINK CSC_KEY_PASSWORD; fi
+          if [ -z "$WIN_CSC_LINK" ]; then unset WIN_CSC_LINK WIN_CSC_KEY_PASSWORD; fi
+          if [ "$RUNNER_OS" = "macOS" ]; then npx electron-builder --mac --publish always; else npx electron-builder --win --publish always; fi
