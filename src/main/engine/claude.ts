@@ -6,6 +6,7 @@
  */
 import Anthropic from '@anthropic-ai/sdk'
 import { betaZodOutputFormat } from '@anthropic-ai/sdk/helpers/beta/zod'
+import { jsonrepair } from 'jsonrepair'
 import { z } from 'zod'
 import type { Effort, UsageSummary } from '../../shared/types'
 
@@ -46,22 +47,40 @@ const JSON_MODE_OBJECT_LIMIT = 14
 const jsonModeSchemas = new WeakSet<object>()
 const jsonSchemaText = new WeakMap<object, string>()
 
-function schemaInfo(schema: z.ZodType): { text: string; objects: number } {
+
+const SUBMIT_TOOL = 'submit_result'
+
+function schemaInfo(schema: z.ZodType): { text: string; objects: number; schemaObject: Record<string, unknown> } {
   let text = jsonSchemaText.get(schema)
   if (!text) {
-    text = JSON.stringify(z.toJSONSchema(schema))
+    const { $schema: _drop, ...rest } = z.toJSONSchema(schema) as Record<string, unknown>
+    text = JSON.stringify(rest)
     jsonSchemaText.set(schema, text)
   }
-  return { text, objects: (text.match(/"type":"object"/g) ?? []).length }
+  return { text, objects: (text.match(/"type":"object"/g) ?? []).length, schemaObject: JSON.parse(text) }
 }
 
-/** 응답 텍스트에서 JSON 객체를 꺼낸다 (코드블록·앞뒤 문장 허용) */
+/** zod 오류를 모델이 고치기 쉬운 짧은 목록으로 */
+function zodIssues(err: z.ZodError): string {
+  return err.issues
+    .slice(0, 12)
+    .map((i) => `${i.path.join('.') || '(root)'}: ${i.message}`)
+    .join(' / ')
+    .slice(0, 900)
+}
+
+/** 응답 텍스트에서 JSON 객체를 꺼낸다 (코드블록·앞뒤 문장 허용, 깨진 따옴표·쉼표는 복구) */
 function extractJson(text: string): unknown {
   const t = text.replace(/```(?:json)?/gi, '')
   const a = t.indexOf('{')
   const b = t.lastIndexOf('}')
   if (a < 0 || b <= a) throw new Error('JSON 객체가 없음')
-  return JSON.parse(t.slice(a, b + 1))
+  const raw = t.slice(a, b + 1)
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return JSON.parse(jsonrepair(raw))
+  }
 }
 
 export class ClaudeEngine {
@@ -117,30 +136,36 @@ export class ClaudeEngine {
   ): Promise<z.infer<S>> {
     const info = schemaInfo(opts.schema)
     if (info.objects > JSON_MODE_OBJECT_LIMIT) jsonModeSchemas.add(opts.schema)
-    const jsonInstruction = () => ({
-      type: 'text' as const,
-      text: `<output_format>\n아래 JSON Schema를 만족하는 JSON 객체 하나만 출력하라. 설명 문장이나 마크다운 코드블록 없이 { 로 시작해 } 로 끝낸다. required 필드는 모두 채우고, enum 필드에는 허용된 값만 쓴다. 각 필드의 description을 지침으로 따른다.\n${info.text}\n</output_format>`
+    // 큰 스키마는 "제출 도구"로 받는다: 모델이 도구 입력으로 결과를 넘기면 API가 JSON을 파싱해 준다.
+    // (문법을 컴파일하지 않으므로 크기 한도가 없고, 문자열 속 따옴표로 JSON이 깨지지 않는다)
+    const submitTool = () => ({
+      name: SUBMIT_TOOL,
+      description: '이 단계의 최종 결과를 제출한다. 반드시 이 도구 하나로, 스키마의 모든 required 필드를 채워 제출한다.',
+      input_schema: info.schemaObject as Anthropic.Beta.Messages.BetaTool['input_schema']
     })
+    const instruction = `\n\n결과는 텍스트로 쓰지 말고 반드시 ${SUBMIT_TOOL} 도구를 한 번 호출해 제출하라. 각 필드의 description을 지침으로 따른다.`
     const userContent = (): Anthropic.Beta.Messages.BetaMessageParam['content'] => {
       const base = typeof opts.user === 'string' ? [{ type: 'text' as const, text: opts.user }] : opts.user
-      return jsonModeSchemas.has(opts.schema) ? [...base, jsonInstruction()] : base
+      return jsonModeSchemas.has(opts.schema) ? [...base, { type: 'text' as const, text: instruction }] : base
     }
     const messages: Anthropic.Beta.Messages.BetaMessageParam[] = [{ role: 'user', content: userContent() }]
     let lastError = ''
     for (let attempt = 0; attempt < 3; attempt++) {
-      const jsonMode = jsonModeSchemas.has(opts.schema)
+      const toolMode = jsonModeSchemas.has(opts.schema)
       const params = {
         ...this.baseParams(opts.model, opts.effort, opts.maxTokens ?? 32000),
         system: opts.system,
         messages,
-        output_config: jsonMode ? { effort: opts.effort } : { effort: opts.effort, format: betaZodOutputFormat(opts.schema) }
+        ...(toolMode
+          ? { output_config: { effort: opts.effort }, tools: [submitTool()], tool_choice: { type: 'auto' } }
+          : { output_config: { effort: opts.effort, format: betaZodOutputFormat(opts.schema) } })
       } as BetaParams
       let msg: BetaMessage
       try {
         msg = await this.send(params, opts.signal)
       } catch (err) {
-        // 문법 한도 초과 → JSON 모드로 전환해 처음부터 다시
-        if (!jsonMode && /grammar is too large|reduce the number of strict|schema is too (large|complex)/i.test((err as Error).message)) {
+        // 문법 한도 초과 → 제출 도구 방식으로 전환해 처음부터 다시
+        if (!toolMode && /grammar is too large|reduce the number of strict|schema is too (large|complex)/i.test((err as Error).message)) {
           jsonModeSchemas.add(opts.schema)
           messages.splice(0, messages.length, { role: 'user', content: userContent() })
           attempt--
@@ -156,28 +181,36 @@ export class ClaudeEngine {
         .filter((b): b is Anthropic.Beta.Messages.BetaTextBlock => b.type === 'text')
         .map((b) => b.text)
         .join('')
+      const toolUse = msg.content.find(
+        (b): b is Anthropic.Beta.Messages.BetaToolUseBlock => b.type === 'tool_use' && b.name === SUBMIT_TOOL
+      )
 
+      let candidate: unknown
       if (msg.stop_reason === 'max_tokens') {
         lastError = '출력이 최대 길이에서 잘렸습니다. 같은 구조로 더 간결하게 다시 작성하라.'
       } else {
         try {
-          const parsed = opts.schema.safeParse(jsonMode ? extractJson(text) : JSON.parse(text))
-          if (parsed.success) {
-            const problem = opts.validate?.(parsed.data) ?? null
-            if (!problem) return parsed.data
-            lastError = problem
-          } else {
-            lastError = `스키마 검증 실패: ${parsed.error.message.slice(0, 500)}`
-          }
+          candidate = toolUse ? toolUse.input : toolMode ? extractJson(text) : JSON.parse(text)
         } catch {
-          lastError = 'JSON 파싱 실패. 스키마에 맞는 JSON만 출력하라.'
+          lastError = toolMode ? `${SUBMIT_TOOL} 도구로 제출하지 않았다.` : 'JSON 파싱 실패. 스키마에 맞는 JSON만 출력하라.'
+        }
+      }
+      if (candidate !== undefined) {
+        const parsed = opts.schema.safeParse(candidate)
+        if (parsed.success) {
+          const problem = opts.validate?.(parsed.data) ?? null
+          if (!problem) return parsed.data
+          lastError = problem
+        } else {
+          lastError = `스키마 검증 실패: ${zodIssues(parsed.error)}`
         }
       }
       // 이전 응답을 그대로 이어 붙인다(append-only: thinking 블록 보존).
       messages.push({ role: 'assistant', content: msg.content as never })
+      const fix = `제출한 결과에 문제가 있다: ${lastError}\n전체 결과를 다시 ${toolMode ? `${SUBMIT_TOOL} 도구로 ` : ''}제출하라.`
       messages.push({
         role: 'user',
-        content: `출력에 문제가 있다: ${lastError}\n${jsonMode ? '스키마를 만족하는 JSON 객체 하나만 ' : ''}전체 결과를 다시 출력하라.`
+        content: toolUse ? [{ type: 'tool_result', tool_use_id: toolUse.id, is_error: true, content: fix }] : fix
       })
     }
     throw new Error(`구조화 출력 실패: ${lastError}`)
