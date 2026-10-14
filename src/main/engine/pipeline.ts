@@ -51,6 +51,7 @@ import { ClaudeEngine, PipelineCancelled, type McpServer } from './claude'
 import { collectMaterials, textDigest, toBlocks } from '../materials'
 import { getSecret } from '../secrets'
 import { DemoEngine } from './demo'
+import { collectStrings, lintVoice } from './voice'
 import * as P from './prompts'
 
 const MAX_TASKS = 6
@@ -603,8 +604,37 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     node('clone', 'done', clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
     }
 
-    /* ---- 10. DELIVER ---- */
+    /* ---- 10. DELIVER: 윤문 후 납품 ---- */
     packet('clone', 'deliver', 'final')
+    node('deliver', 'running', '윤문 — MIN의 문장으로')
+    const before = lintVoice(collectStrings(result))
+    if (before.perThousand < 0.4) {
+      log('deliver', `윤문: AI투 표현 ${before.total}개 — 고칠 만큼 많지 않아 건너뜀`)
+      verification.polish = { before: before.total, after: before.total, top: before.hits.slice(0, 8) }
+    } else {
+      try {
+        const polished = await engine.structured({
+          model: models.worker,
+          system: system(P.ROLE.polish),
+          user: P.polishUser(result, before.hits),
+          effort: 'medium',
+          signal,
+          maxTokens: 64000,
+          schema: SynthesisSchema,
+          validate: (v) => validateSynthesis(v) ?? (v.alternatives.length !== result.alternatives.length ? `대안 수를 바꾸지 마라 (원래 ${result.alternatives.length}개)` : null)
+        })
+        const after = lintVoice(collectStrings(polished))
+        verification.polish = { before: before.total, after: after.total, top: before.hits.slice(0, 8) }
+        if (after.total <= before.total) {
+          result = polished
+          commit('윤문')
+        }
+        log('deliver', `윤문: AI투 표현 ${before.total}개 → ${after.total}개${before.hits.length ? ` (많았던 말: ${before.hits.slice(0, 5).map((h) => h.phrase).join(', ')})` : ''}`)
+      } catch (err) {
+        if (signal.aborted) throw err
+        log('deliver', `윤문 실패 — 원문으로 납품: ${(err as Error).message}`, 'warn')
+      }
+    }
     node('deliver', 'done', `최종 · ${verification.versions.length}번 다듬음`)
     run.status = 'done'
     persist()

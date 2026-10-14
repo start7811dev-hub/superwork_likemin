@@ -37,6 +37,7 @@ MPM은 업무를 받으면 의도를 읽고, **이 일에 필요한 만큼만 �
 | **⑤ SUPER INSIGHT** | 과제에 맞는 방법론만 골라(JTBD · AARRR · TOWS · STP 2.0 · CDJ · 유닛 이코노믹스 · 경쟁 구도) 핵심 주장 가설을 검증한 뒤 **MIN'S 4-3-2 THINKING**을 확정한다. | **4** SUPER STRATEGIES · **3** KEY SUCCESS FACTORS · **2** CORE KEY-CLAIMS. 전략마다 근거가 된 방법론의 칸과 근거 강도를 밝힌다. |
 | **⑥ 종합** | 성미가 급해서 **일단 결과부터 낸다.** 본질적으로 다른 대안을 최소 3개 만들고 조건부로 추천한다. | 대안마다 비용(확인 필요), 차별화, 관성/혁신, 빼는 것, 첫인상/반복 사용, 철회 조건을 쓴다. |
 | **⑦ 검증 루프** | 결과를 **재검증**한다. 이어서 최종 검증 A(**디테일 고도화**)와 최종 검증 B(**MPM 클론**)를 거친다. | 클론은 디테일을 보지 않고 의도·타깃·브랜드·시장을 거시적으로 본다. 큰 이슈가 있을 때만 **직권 지시를 한 번** 내린다. |
+| **⑧ 윤문** | 납품 전에 AI 티 나는 표현(한자어·추상어·상투구)을 검사해, 많으면 문장만 MIN의 문체로 다시 다듬는다. | 기준은 `brain/knowledge/min-voice.md` — MIN이 직접 쓴 제안서에서 뽑은 작문 방식. 판단·숫자·구조는 건드리지 않는다. |
 | **⑧ 리포트** | 리포트·SUPER INSIGHT 시각화·Factbook·검증 이력을 함께 전달한다. | 사실/가정/미확인을 분리하고, 다음 검증 항목으로 끝맺는다. |
 
 ### 공정은 MPM이 판단한다
@@ -297,7 +298,7 @@ npm run build && SWLM_SHOT_DIR=./shots npx electron .
 ```
 src/main/
   engine/pipeline.ts   공정 오케스트레이터 (의도 질문 → 분장·위임 → Factbook+업무⇄검수 → 통합 → 시뮬레이션
-                       → SUPER INSIGHT → 종합 → 재검증 → 고도화 → MPM 클론 → 전달, 단계별 실행·생략은 MPM 판단)
+                       → SUPER INSIGHT → 종합 → 재검증 → 고도화 → MPM 클론 → 윤문 → 전달, 단계별 실행·생략은 MPM 판단)
   engine/prompts.ts    단계별 업무 계약 (책임 · 판단 기준 · 경계 · 판단 엔진 규칙)
   engine/claude.ts     Claude API: structured outputs, 서버 측 거절 폴백, 웹 검색, MCP 커넥터, PPTX 스킬, 사용량 집계
   engine/demo.ts       키 없이 체험하는 데모 엔진

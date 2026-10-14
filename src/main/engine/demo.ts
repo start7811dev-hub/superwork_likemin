@@ -95,7 +95,7 @@ const canvas: ContextCanvas = {
     clone: { run: true, reason: '런칭 방향 자체를 거시적으로 점검할 가치가 있음' }
   },
   intent: {
-    reading: '30대 직장인을 첫 구독 고객으로 확보하는 실행 전략이 필요하다',
+    reading: '30대 직장인 첫 구독 고객을 어떻게 모을지 실행안이 필요하다',
     clear: false,
     questions: [
       {
@@ -263,7 +263,7 @@ const insight: Insight = {
 const review = (stage: 'review' | 'refine'): Review => ({
   judgment: { decision: stage === 'review' ? '방향은 유지, 디테일 보강 필요' : '숫자·실행 단계 구체화', basis: [{ principle: '성미 급한 MPM의 재검증', source: 'doctrine §0.7', application: '결과 후 다시 고민' }], counterCheck: '대안 구조 자체는 건전함', confidence: 'medium' },
   verdict: 'improve',
-  strengths: ['대안 간 차이가 본질적'],
+  strengths: ['대안끼리 방향이 확실히 다름'],
   issues: stage === 'review'
     ? [{ target: 'B', problem: '파일럿 이후 개인 전환 경로가 모호', fix: '전환 퍼널과 측정 지표를 명시' }]
     : [{ target: 'A', problem: '비용 범위가 넓음', fix: '인력·기간 기준으로 범위를 좁히고 확인 필요 항목 분리' }]
@@ -287,12 +287,13 @@ const simulation: Simulation = {
 }
 
 const synthesis: Synthesis = {
-  executiveSummary: '구독을 붙잡는 건 할인이 아니라 “저녁을 대신 정해 준다”는 신뢰다. 그래서 사내 단체 파일럿(B)으로 작게 검증하고, 반응이 확인되면 결정 대행 구독(A)으로 넓힌다.',
+  executiveSummary: '할인으로는 구독을 못 붙잡는다. 붙잡는 건 “오늘 저녁은 정해 줄게”라는 신뢰다. 사내 복지 파일럿(B)으로 4주 안에 확인하고, 2회차 유지율 60%가 나오면 결정 대행 구독(A)으로 넓힌다.',
   deliverable: {
     title: '초기 고객 확보 실행안',
     sections: [
-      { heading: '핵심 메시지', body: '> 오늘 저녁, 고민은 저희가 할게요.\n\n- 약속하는 것: 메뉴 결정에서 해방\n- 약속하지 않는 것: 최저가' },
-      { heading: '4주 파일럿', body: '1. **1주차** HR 담당자 10명 인터뷰\n2. 2주차 제휴사 2곳 확정\n3. 3~4주차 사무실 픽업으로 첫 박스 배송\n\n성공 기준은 2회차 결제 유지율 60%입니다.' }
+      { heading: 'PROBLEM · 밀키트는 많은데, 메뉴 고민은 그대로', body: '밀키트를 사도 “오늘 뭐 먹지”는 여전히 내 몫이다.\n\n> 퇴근길에 메뉴 고민하다 결국 배달앱 켜요. — 30대 직장인 인터뷰 (데모)\n\n경쟁사는 메뉴 수로 싸운다. 같은 줄에 서는 순간 **도토리 키재기**다.' },
+      { heading: 'CONCEPT · 결정 대행', body: '> 오늘 저녁, 고민은 저희가 할게요.\n\n- 약속하는 것: 메뉴 결정에서 해방\n- 약속하지 않는 것: 최저가' },
+      { heading: 'ACTION · 4주 파일럿', body: '1. **1주차** HR 담당자 10명 인터뷰\n2. 2주차 제휴사 2곳 확정\n3. 3~4주차 사무실 픽업으로 첫 박스 배송\n\n성공 기준: 2회차 결제 유지율 60%.' }
     ]
   },
   coreRestated: { goal: canvas.goal, purpose: canvas.purpose, brand: canvas.core.brand, consumer: canvas.core.consumer, market: canvas.core.market },

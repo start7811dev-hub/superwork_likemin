@@ -159,6 +159,8 @@ export interface RunRecord {
     review?: Review
     refine?: Review
     clone?: CloneReview
+    /** 윤문: AI투 표현 수 (전 → 후) */
+    polish?: { before: number; after: number; top: { phrase: string; count: number }[] }
     versions: { label: string; at: string }[]
   }
   usage: UsageSummary

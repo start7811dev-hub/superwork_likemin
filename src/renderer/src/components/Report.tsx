@@ -144,6 +144,11 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
               {run.verification.clone.bigIssue && <p><b>직권 지시</b> {run.verification.clone.directive}</p>}
             </section>
           )}
+          {run.verification?.polish && (
+            <section><h2>윤문 — AI투 표현 {run.verification.polish.before}개 → {run.verification.polish.after}개</h2>
+              {run.verification.polish.top.length > 0 && <p className="muted">많았던 말: {run.verification.polish.top.map((h) => `${h.phrase} ${h.count}`).join(' · ')}</p>}
+            </section>
+          )}
         </article>
       )}
 

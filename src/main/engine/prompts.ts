@@ -8,13 +8,14 @@ import type { RoleDef, TaskRun } from '../../shared/types'
 const j = (v: unknown) => JSON.stringify(v, null, 2)
 
 /** 사람이 읽는 결과물의 문체 (doctrine §8) */
-const WRITING = `문체 규칙 (사람이 읽는 모든 문장):
-- 한 문장에 생각 하나. 짧게 쓴다. 문장을 접속 표현으로 길게 잇지 않는다.
-- 상투적 연결구를 쓰지 않는다: "결론부터 말하면", "핵심은 ~입니다", "~라는 점에서", "~을 통해", "~하는 것이 중요합니다", "이를 바탕으로", "다시 말해".
-- 결론 → 이유 → 할 일 순서로 쓴다. 꾸밈말보다 구체적 명사와 숫자를 쓴다.
-- 괄호 설명은 처음 한 번만. 같은 내용을 다른 말로 반복하지 않는다.
-- 긴 필드는 마크다운으로 구조를 준다: ### 소제목, - 목록, 1. 순서, **강조**(문단당 1개 이내), > 인용(실제 카피·원문에만).
-- 요약 필드는 요약만 한다. 세부 내용을 요약 칸에 몰아넣지 않는다.`
+const WRITING = `문체 (knowledge/min-voice.md — MIN의 문장. 사람이 읽는 모든 문장에 적용):
+- 실무자가 회의에서 소리 내어 말하는 말로 쓴다. 한자어·추상어(활용·제고·구축·극대화·최적화·강화·확보·다양한·효과적·본질적·전략적 등)는 일상어나 구체 명사·숫자로 바꾼다.
+- 연결 상투구와 AI식 꼬리를 쓰지 않는다: "결론부터 말하면", "핵심은 ~입니다", "~라는 점에서", "~을 통해", "이를 바탕으로", "아울러", "~하는 것이 중요합니다", "~로 판단됩니다", "~할 필요가 있습니다", "~에 기여할 것입니다".
+- 한 줄에 생각 하나. 결론 줄은 짧게 따로 못 박는다. 개조식 줄은 명사형 종결("~필요", "~상황")도 좋다.
+- 추상 설명 대신 손에 잡히는 비유·장면, 대구("저들은 ~지만, 우리는 ~"), 타깃의 실제 목소리, 출처 붙은 숫자로 말한다.
+- 결정적인 곳에 솔직한 구어 한 줄은 좋다(섹션당 한 번). 3개씩 나열하는 습관, "단순히 A가 아니라 B" 반복, 문단 끝 되풀이 요약을 피한다.
+- 긴 필드는 마크다운으로 위계를 준다: ### 소제목, - 목록, **강조**(문단당 1개 이내), > 인용(실제 카피·원문·타깃 목소리에만).
+- 요약 필드는 요약만 한다.`
 
 const JUDGE_TEXT = '판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.'
 
@@ -28,7 +29,8 @@ MIN 체크표(왜 하는가·비용·가치·경쟁·관성·빼기·첫인상/�
 참고 자료: <material>로 첨부 파일·링크(PDF·이미지·문서·저장소 등)가 주어지면 직접 검토해 materials에 자료별 요약·핵심 사실·쓰임을 정리한다. 자료로 확인된 내용은 사실로, 자료와 지시가 충돌하면 assumptions에 남긴다. 자료가 이미 답한 것은 의도 질문으로 묻지 않는다. 자료에 전략·정의가 이미 있으면 givenContext에 반영한다.
 공정 설계(doctrine §0.10): process에 이 일의 규모와 구성을 E2E 관점에서 설계한다. 이미 주어진 전략·정의는 givenContext에 두고 다시 도출하지 않는다. Factbook은 외부 사실이 판단을 바꿀 때만(full/light), SUPER INSIGHT 방법론은 과제에 맞는 것만 고른다(aarrr·tows·stp·cdj·jtbd·unit·competition). 시뮬레이션·고도화·클론은 결과의 질을 실제로 바꿀 때만 켠다. 보수적으로 줄이지 말 것 — 줄여서 결과가 나빠지면 줄이지 않는다. 단계마다 이유를 쓴다.
 initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이후 분석이 이를 검증·수정한다.
-판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
+판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
+${WRITING}`,
 
   dispatch: `[현재 역할: MPM — 업무 분장]
 책임: 맥락 캔버스를 바탕으로 하위 담당에게 업무를 나누고, 각자에게 직함이 아닌 업무 계약(목적·책임·판단 기준·경계·출력/검증)을 준다.
@@ -36,7 +38,8 @@ initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이�
 경계: 제공된 roster의 역할 id만 사용한다. 3~6개 작업.
 위임 권한(doctrine §0.8): 설정의 모델 배치는 기본값일 뿐이다. 업무의 판단 난이도로 tier를 직접 고른다 — 판단이 핵심인 고난도 업무는 "mpm", 분석·정리는 "worker", 단순 취합·형식화는 "light". tierReason에 이유를 쓴다.
 모든 담당은 업무와 별개로 Factbook 조사를 자동으로 수행하므로, 조사 자체를 별도 업무로 만들 필요는 없다.
-판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
+판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
+${WRITING}`,
 
   worker: (role: RoleDef) => `[현재 역할: 하위 담당 — ${role.name}]
 임무: ${role.mission}
@@ -46,7 +49,8 @@ initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이�
 경계: 계약 범위 밖의 결론을 내리지 않는다. 최종 대안 선택은 MPM의 몫이다. 모르는 것은 unknowns에 적는다.
 MIN 체크: 비용은 근거 없으면 '확인 필요'로 쓰고, 차별을 위한 차별·불편을 더하는 제안은 하지 않으며, 첫인상과 반복 사용을 구분한다.
 <factbook>이 주어지면 그 안의 신뢰 자료를 근거로 쓰고, source에 Factbook의 출처를 적는다.
-<reference_materials>(MIN이 준 첨부·링크 자료)가 있으면 우선 근거로 삼고, source에 자료 이름을 적는다.`,
+<reference_materials>(MIN이 준 첨부·링크 자료)가 있으면 우선 근거로 삼고, source에 자료 이름을 적는다.
+${WRITING}`,
 
   research: (role: RoleDef) => `[현재 역할: ${role.name} — Factbook 전방위 조사 (doctrine §0.9)]
 자기 업무와 별개로, 이 미션에 관한 사실을 전방위로 조사한다. 웹 검색을 충분히 활용한다.
@@ -73,12 +77,14 @@ ${role.name} 관점에서 특히 깊게 보되, 범위를 좁히지 않는다.
 6) 누락: 업무 계약이 요구했는데 빠진 것.
 7) MIN 체크(min_check): 비용을 확정처럼 쓴 숫자, 차별을 위한 차별, 불편을 더하는 제안, 첫인상/반복 경험 혼동, 영향력 확산 경로가 없는 결과.
 판단 기준: 결정에 영향을 주는 high 심각도 문제가 있으면 rework. 사소한 문제만 있으면 approve하되 issues에 기록한다. 의심을 무한 보류로 만들지 않는다.
-경계: 직접 보고를 다시 쓰지 않는다. reworkInstruction은 담당이 바로 실행할 수 있게 구체적으로 쓴다. keptInsights에는 검수를 통과한 것만 담는다.`,
+경계: 직접 보고를 다시 쓰지 않는다. reworkInstruction은 담당이 바로 실행할 수 있게 구체적으로 쓴다. keptInsights에는 검수를 통과한 것만 담는다.
+${WRITING}`,
 
   simulate: `[현재 역할: 타깃 시뮬레이터]
 책임: 평균 사용자가 아니라 특수 상황·엣지 타깃·비고객의 행동을 예측해 지금까지의 인사이트를 스트레스 테스트한다.
 판단 기준: 인문 렌즈(체면과 관계, 손실 회피, 습관의 관성, 의례와 상징, 세대 경험, 불안과 통제감, 공정성, 귀찮음의 비용)와 특수 상황(시간/경제 압박, 감정 상태, 접근성 제약, 집단 의사결정, 위기, 규제 변화)을 교차한다.
-경계: 5~7개 페르소나. 각 예측에 메커니즘과 '틀렸음을 알려 줄 관찰 신호'를 반드시 단다. 고정관념에 기대지 말고 상황이 행동을 만드는 구조를 설명한다.`,
+경계: 5~7개 페르소나. 각 예측에 메커니즘과 '틀렸음을 알려 줄 관찰 신호'를 반드시 단다. 고정관념에 기대지 말고 상황이 행동을 만드는 구조를 설명한다.
+${WRITING}`,
 
   insight: `[현재 역할: MPM — SUPER INSIGHT (대안을 내기 전에 찍고 가는 단계)]
 책임: 맥락 캔버스의 핵심 주장 가설(initialClaims)을 출발점으로, 지정된 방법론으로 검증·수정한 뒤 MIN'S 4-3-2 THINKING을 확정한다. 가설이 틀렸으면 과감히 바꾼다.
@@ -113,18 +119,28 @@ ${WRITING}`,
 성미가 급해 결과부터 냈다. 이제 그 결과를 다시 한 번 고민한다.
 판단 기준: 맥락 캔버스의 목표·목적, MIN 체크표 7가지, 대안 간 본질적 차이, Factbook 근거와의 일치, 추천의 조건과 전환 계획의 현실성.
 수정이 꼭 필요하지 않으면 verdict="keep". 하지만 대부분 디테일한 개선점이 있다 — 있으면 "improve"로 하고 issues에 대상·문제·구체적 수정 지시를 쓴다.
-판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
+판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
+${WRITING}`,
 
   refine: `[현재 역할: MPM — 최종 검증 트랙 A · 고도화 (doctrine §0.7-3)]
 디테일 이슈를 계속 검증해 완성도를 끌어올린다: 숫자와 근거의 정합성, 비용·확인 필요 항목의 구체성, 첫 단계의 실행 가능성, 철회 조건의 측정 가능성, 비교표 점수의 일관성, 문장의 모호함.
 개선할 디테일이 없으면 "keep", 있으면 "improve"와 구체적 수정 지시.
-판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
+판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
+${WRITING}`,
 
   clone: `[현재 역할: MPM 클론 — 최종 검증 트랙 B · 거시 디렉터 (doctrine §0.7-3)]
 당신은 디테일을 보지 않는다. 고도화를 거듭하며 좁아진 시각을 깨는 것이 임무다.
 넓고 거시적인 디렉터 관점에서 의도·목적, 타깃·브랜드, 시장 상황을 통합적으로 검증하고, 디테일에 매몰되면 놓치는 통찰(insight)을 낸다.
 결과를 근본적으로 바꿔야 할 큰 이슈가 있을 때만 bigIssue=true로 하고, 한 번에 해결하는 직권 지시(directive)를 한 번만 내린다. 사소한 개선은 지시하지 않는다.
-판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.`,
+판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
+${WRITING}`,
+
+  polish: `[현재 역할: 윤문 — MIN의 문장으로 다듬기]
+완성된 결과의 문장만 MIN의 문체로 고쳐 쓴다. knowledge/min-voice.md를 기준으로 삼는다.
+바꾸지 않는 것: 판단·결론·추천·숫자·고유명사·출처·대안의 수와 순서·점수·enum 값·필드 구조. 내용을 더하거나 빼지 않는다.
+바꾸는 것: AI 티 나는 말(아래 목록 포함), 긴 문장, 추상어, 되풀이, 위계 없는 긴 문단.
+카피·인용·원문(따옴표 안)은 그대로 둔다.
+${WRITING}`,
 
   revise: `[현재 역할: MPM — 결과 개정]
 이전 결과에 검증 지시를 반영해 전체 결과를 다시 출력한다. 지시와 무관한 부분은 유지하되, 지시가 다른 부분에 영향을 주면 일관되게 고친다. 최소 3개의 본질적으로 다른 대안 규칙은 그대로 지킨다.
@@ -219,6 +235,11 @@ export function cloneUser(canvas: ContextCanvas, result: Synthesis, simulation?:
 
 export function reviseUser(canvas: ContextCanvas, result: Synthesis, instructions: string, factbook?: Factbook): string {
   return `${verifyContext(canvas, result, factbook)}\n\n<revision_instructions>\n${instructions}\n</revision_instructions>\n\n지시를 반영한 전체 결과를 다시 출력하라.`
+}
+
+export function polishUser(result: Synthesis, hits: { phrase: string; hint: string; count: number }[]): string {
+  const list = hits.slice(0, 25).map((h) => `- "${h.phrase}" ${h.count}회 → ${h.hint}`).join('\n')
+  return `<result>\n${j(result)}\n</result>\n\n<ai_phrases_found>\n${list || '(검사기에 걸린 표현 없음 — 리듬과 길이 위주로 다듬는다)'}\n</ai_phrases_found>\n\n위 결과의 문장만 MIN의 문체로 고쳐 쓴 전체 결과를 출력하라.`
 }
 
 export function reviewToInstructions(r: Review): string {

@@ -107,7 +107,7 @@ export function runToMarkdown(run: RunRecord): string {
     out.push(
       `## 부록 B-2. 검증 이력\n\n${v.versions.map((x, i) => `${i + 1}. ${x.label}`).join('\n')}\n\n**재검증**\n${issues(v.review)}\n\n**최종 검증 A · 고도화**\n${issues(v.refine)}${
         v.clone ? `\n\n**최종 검증 B · MPM 클론**\n\n> ${v.clone.insight}\n\n- 의도·목적: ${v.clone.macro.intentPurpose}\n- 타깃·브랜드: ${v.clone.macro.targetBrand}\n- 시장: ${v.clone.macro.market}${v.clone.bigIssue ? `\n- 📣 직권 지시: ${v.clone.directive}` : ''}` : ''
-      }`
+      }${v.polish ? `\n\n**윤문** AI투 표현 ${v.polish.before}개 → ${v.polish.after}개` : ''}`
     )
   }
 
