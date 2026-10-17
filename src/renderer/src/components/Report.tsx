@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { estimateCost, type ExportFormat, type IntegrationInfo, type RunRecord } from '@shared/types'
+import { DELIVERABLE_KINDS, type Brief } from '@shared/schemas'
+import { deliverableOf } from '@shared/report-md'
 import { api } from '../api'
 import FactbookView from './FactbookView'
 import Md from './Md'
@@ -12,6 +14,36 @@ function Dots({ n }: { n: number }) {
     <span className="dots" aria-label={`${n}/5`}>
       {[1, 2, 3, 4, 5].map((i) => <i key={i} className={i <= Math.round(n) ? 'on' : ''} />)}
     </span>
+  )
+}
+
+/** 1장 브리프: 표 대신 정의 목록으로 */
+export function BriefCard({ b }: { b: Brief }) {
+  const rows: [string, string][] = [
+    ['만들 것', b.output],
+    ['받는 사람', b.audience],
+    ['통찰', b.insight.truth],
+    ['긴장', b.insight.tension],
+    ['도약', b.leap],
+    ['버릴 것', b.notThis.join(' · ')],
+    ['근거', b.evidence.map((e) => `${e.point} (${e.source})`).join(' · ')],
+    ['톤 · 형식', `${b.tone} · ${b.format}`],
+    ['반드시', b.must.join(' · ')],
+    ['절대', b.mustNot.join(' · ')],
+    ['합격선', b.bar]
+  ]
+  return (
+    <div className="brief-card">
+      <div className="eyebrow">1장 브리프 · {DELIVERABLE_KINDS[b.kind]}</div>
+      <p className="brief-prop">{b.proposition}</p>
+      <dl className="brief-dl">
+        {rows.filter(([, v]) => v).map(([k, v]) => (
+          <div key={k}><dt>{k}</dt><dd>{v}</dd></div>
+        ))}
+        {b.angles.length > 0 && <div><dt>탐색 각도</dt><dd>{b.angles.map((a) => a.name).join(' · ')}</dd></div>}
+        {b.outline.length > 0 && <div><dt>제목 흐름</dt><dd><ol>{b.outline.map((o, i) => <li key={i}>{o.heading}</li>)}</ol></dd></div>}
+      </dl>
+    </div>
   )
 }
 
@@ -63,6 +95,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
   }
 
   const ids = s.alternatives.map((a) => a.id)
+  const d = deliverableOf(run)
 
   return (
     <div className="report" ref={top}>
@@ -123,7 +156,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
       {tab === 'verify' && (
         <article className="doc">
           <div className="eyebrow">성미 급한 MPM의 검증 이력</div>
-          <h1>결과 → 재검증 → 고도화 → MPM 클론</h1>
+          <h1>전략 → 재검증 → 브리프 → 클론 심사 → 제작 → 취향 심사</h1>
           <ul className="vtrail">
             {run.verification?.versions.map((v, i) => <li key={i}><b>v{i + 1} · {v.label}</b> <span className="muted small">{new Date(v.at).toLocaleTimeString('ko-KR')}</span></li>)}
           </ul>
@@ -144,6 +177,31 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
               {run.verification.clone.bigIssue && <p><b>직권 지시</b> {run.verification.clone.directive}</p>}
             </section>
           )}
+          {run.briefReview && (
+            <section><h2>MPM 클론의 브리프 심사 — {run.briefReview.verdict === 'rewrite' ? '직권 지시' : '통과'}</h2>
+              <p>{run.briefReview.insight}</p>
+              <p className="muted small">도약 {run.briefReview.leapScore}/5 · {run.briefReview.generic ? '뻔함' : '고유함'} · {run.briefReview.scopeMatch ? '요청과 일치' : '요청과 다름'}</p>
+              {run.briefReview.verdict === 'rewrite' && <p><b>직권 지시</b> {run.briefReview.directive}</p>}
+              {run.briefNote && <p><b>MIN의 지시</b> {run.briefNote}</p>}
+            </section>
+          )}
+          {run.production?.taste && run.production.candidates && (
+            <section><h2>취향 심사 — 후보 {run.production.candidates.length}개 중 {run.production.taste.picks.length}개 채택</h2>
+              <p className="muted">버린 이유: {run.production.taste.killedPatterns.join(' · ')}</p>
+              <ol className="cands">
+                {run.production.candidates.map((c, i) => {
+                  const pick = run.production!.taste!.picks.find((p) => p.id === i)
+                  return <li key={i} className={pick ? 'picked' : ''}><span>{c.head}</span> <span className="muted small">{c.angle}{pick ? ` · 채택: ${pick.why}` : ''}</span></li>
+                })}
+              </ol>
+            </section>
+          )}
+          {run.production?.docTaste && (
+            <section><h2>결과물 심사 — {run.production.docTaste.verdict === 'fix' ? `${run.production.fixed?.length ?? 0}개 절 수정` : '통과'}</h2>
+              <p className="muted small">제목 흐름 {run.production.docTaste.flowReads ? '통과' : '끊김'} · 도약 {run.production.docTaste.leapScore}/5</p>
+              <ul>{run.production.docTaste.issues.map((x, i) => <li key={i}><b>{x.heading}</b> {x.problem} → {x.fix}</li>)}</ul>
+            </section>
+          )}
           {run.verification?.polish && (
             <section><h2>윤문 — AI투 표현 {run.verification.polish.before}개 → {run.verification.polish.after}개</h2>
               {run.verification.polish.top.length > 0 && <p className="muted">많았던 말: {run.verification.polish.top.map((h) => `${h.phrase} ${h.count}`).join(' · ')}</p>}
@@ -156,9 +214,31 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
       <article className="doc">
         <header>
           <div className="eyebrow">REPORT · {new Date(run.createdAt).toLocaleString('ko-KR')} · ${estimateCost(run.usage).toFixed(2)}{run.verification?.versions.length ? ` · ${run.verification.versions.at(-1)!.label}` : ''}</div>
-          <h1>{run.title}</h1>
-          <div className="lead"><Md text={s.executiveSummary} /></div>
+          <h1>{d?.title || run.title}</h1>
+          <div className="lead"><Md text={d?.summary || s.executiveSummary} /></div>
         </header>
+
+        {d && (
+          <section className="deliverable">
+            {d.concept && <p className="concept">{d.concept}</p>}
+            {d.sections.map((sec, i) => (
+              <div key={i} className="dl-sec">
+                <h3>{sec.heading}</h3>
+                <Md text={sec.body} />
+              </div>
+            ))}
+          </section>
+        )}
+
+        {run.workBrief && <BriefCard b={run.workBrief} />}
+
+        <div className="part-divider"><span className="eyebrow">전략 근거</span></div>
+        {d?.summary && (
+          <section>
+            <h2>전략 결론</h2>
+            <Md text={s.executiveSummary} />
+          </section>
+        )}
 
         <section className="core-grid">
           {([['목표', s.coreRestated.goal], ['목적', s.coreRestated.purpose], ['브랜드', s.coreRestated.brand], ['소비자', s.coreRestated.consumer], ['시장', s.coreRestated.market]] as const).map(([k, v]) => (
@@ -185,19 +265,6 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
             <div><h5>전환 계획</h5><Md text={s.recommendation.switchTo} /></div>
           </div>
         </section>
-
-        {s.deliverable?.sections.length ? (
-          <section className="deliverable">
-            <div className="eyebrow">산출물</div>
-            <h2>{s.deliverable.title}</h2>
-            {s.deliverable.sections.map((sec, i) => (
-              <div key={i} className="dl-sec">
-                <h3>{sec.heading}</h3>
-                <Md text={sec.body} />
-              </div>
-            ))}
-          </section>
-        ) : null}
 
         {run.insight && (
           <section className="insight-sum">

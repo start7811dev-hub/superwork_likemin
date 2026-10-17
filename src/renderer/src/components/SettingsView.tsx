@@ -132,6 +132,11 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
           </select>
         </label>
         <label className="field">
+          <span>브리프 승인</span>
+          <input type="checkbox" checked={s.briefApproval} onChange={(e) => save({ ...s, briefApproval: e.target.checked })} />
+          <span className="muted small">결과물을 만들기 전에 1장 브리프를 보여 주고 승인을 받습니다. 끄면 클론 심사만 거치고 바로 제작합니다</span>
+        </label>
+        <label className="field">
           <span>Factbook 웹 조사</span>
           <input type="checkbox" checked={s.webResearch} onChange={(e) => save({ ...s, webResearch: e.target.checked })} />
           <span className="muted small">모든 하위 담당이 실제 웹 검색으로 신뢰 자료를 수집 (끄면 모델 지식으로 작성 · 신뢰도 보수적)</span>

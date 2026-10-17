@@ -3,6 +3,7 @@ import { estimateCost, type AttachmentInfo, type Depth, type PipelineEvent, type
 import { api } from './api'
 import { EMPTY, fromRecord, reduce, type LiveState } from './live'
 import Factory from './components/Factory'
+import BriefGate from './components/BriefGate'
 import QuestionGate from './components/QuestionGate'
 import CostBadge from './components/CostBadge'
 import CostView from './components/CostView'
@@ -164,7 +165,7 @@ export default function App() {
           <div className="status">
             {running && <span className="live-dot" />}
             <span className="muted small">
-              {live.questions ? 'MPM이 MIN의 답을 기다리는 중' : running ? 'MPM 공정 가동 중' : live.status === 'done' ? '완료' : live.status === 'error' ? '오류' : live.status === 'cancelled' ? '중단됨' : '대기'}
+              {live.brief ? 'MPM이 브리프 승인을 기다리는 중' : live.questions ? 'MPM이 MIN의 답을 기다리는 중' : running ? 'MPM 공정 가동 중' : live.status === 'done' ? '완료' : live.status === 'error' ? '오류' : live.status === 'cancelled' ? '중단됨' : '대기'}
               {live.runId && ` · $${estimateCost(live.usage).toFixed(3)}`}
             </span>
           </div>
@@ -175,6 +176,9 @@ export default function App() {
             <div className="stage">
               <Factory live={live} selected={selected} onSelect={setSelected} />
               {live.status === 'error' && <div className="error-banner">{live.error}</div>}
+              {live.brief && live.runId && (
+                <BriefGate key={live.brief.proposition} brief={live.brief} onSubmit={(ans) => void api.runs.answer(live.runId!, ans)} />
+              )}
               {live.questions && live.runId && (
                 <QuestionGate
                   key={live.questions.items.map((q) => q.question).join('|')}

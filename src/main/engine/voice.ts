@@ -1,5 +1,5 @@
 /**
- * AI 티 나는 표현 검사기 (brain/knowledge/min-voice.md §2).
+ * AI 티 나는 표현 검사기 (brain/knowledge/min-voice.md §1·§5).
  * 윤문 단계를 돌릴지 정하고, 윤문 전후를 비교하는 데 쓴다.
  */
 
@@ -41,8 +41,44 @@ const PATTERNS: { re: RegExp; hint: string }[] = [
   { re: /시너지/g, hint: '무엇이 무엇을 키우는지' },
   { re: /인사이트를 도출/g, hint: '알아낸 것은' },
   { re: /니즈를 충족/g, hint: '원하는 걸 준다' },
-  { re: /해당 /g, hint: '이·그' }
+  { re: /해당 /g, hint: '이·그' },
+  // 장면 은유 · 감정 선언
+  { re: /달라 보입니다|달라 보인다|자랍니다|피어납니다|스며들|녹아들|조용히|천천히/g, hint: '의미를 직접 쓰기' },
+  { re: /을 만나(다|고|게|는)|를 만나(다|고|게|는)|의 순간|너머/g, hint: '장면 대신 의미' },
+  { re: /(을|를) 느끼(게|고|는|며|다)|느낀다|느낍니다|느끼게 된|감동을 (주|선사)|설렘|특별한 경험|선사(하|합|한)/g, hint: '감정 대신 행동·상태 변화' },
+  // 번역투
+  { re: /에 대한 /g, hint: '~의 / 빼기' },
+  { re: /(을|를) 제공(하|합|한)/g, hint: '준다·보여 준다' },
+  { re: /가 가능(하|합|한)|이 가능(하|합|한)/g, hint: '~할 수 있다' },
+  { re: /하는 것이다|하는 것입니다/g, hint: '바로 서술' },
+  { re: /동일한/g, hint: '같은' },
+  // 공허한 명사
+  { re: /(새로운|특별한|색다른|차별화된) (경험|가치|여정)/g, hint: '무엇의 무엇인지' }
 ]
+
+/** 문장 단위 검사: 100자 넘는 문장, 짧은 단정문 연속, 본문의 명사형 종결 */
+function sentenceHits(body: string): VoiceHit[] {
+  const out: VoiceHit[] = []
+  const prose = body
+    .split('\n')
+    .filter((l) => !/^\s*(#|>|\||-|\*|\d+\.)/.test(l))
+    .join('\n')
+  const sentences = prose.split(/(?<=[.!?。])\s+|\n+/).map((x) => x.trim()).filter((x) => x.length > 0)
+  const long = sentences.filter((x) => x.length > 100).length
+  if (long) out.push({ phrase: '100자 넘는 문장', hint: '두 문장으로 나누기', count: long })
+  let run = 0
+  let choppy = 0
+  for (const x of sentences) {
+    if (x.length < 22 && /[다요]\.?$/.test(x)) {
+      run++
+      if (run === 3) choppy++
+    } else run = 0
+  }
+  if (choppy) out.push({ phrase: '짧은 단정문 연속', hint: '길이를 섞고 접속어로 잇기', count: choppy })
+  const nominal = sentences.filter((x) => x.length > 25 && /(함|됨|음|임|비움|필요|상황)\.?$/.test(x)).length
+  if (nominal) out.push({ phrase: '명사형 종결 문장', hint: '~합니다/~다로', count: nominal })
+  return out
+}
 
 export interface VoiceHit {
   phrase: string
@@ -62,7 +98,7 @@ export function lintVoice(texts: string[]): { total: number; hits: VoiceHit[]; p
       map.set(key, h)
     }
   }
-  const hits = [...map.values()].sort((a, b) => b.count - a.count)
+  const hits = [...map.values(), ...sentenceHits(body)].sort((a, b) => b.count - a.count)
   const total = hits.reduce((s, h) => s + h.count, 0)
   return { total, hits, perThousand: body.length ? (total / body.length) * 1000 : 0 }
 }

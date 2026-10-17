@@ -79,7 +79,9 @@ function outputFormat(schema: z.ZodType) {
 const ENUM_SYNONYMS: Record<string, string> = {
   사실: 'fact', 추론: 'inference', 가설: 'hypothesis', 의견: 'opinion', 가정: 'hypothesis', assumption: 'hypothesis', estimate: 'inference', claim: 'opinion',
   높음: 'high', 중간: 'medium', 보통: 'medium', 낮음: 'low', 강함: 'strong', 약함: 'weak',
-  승인: 'approve', 반려: 'rework', 유지: 'keep', 개선: 'improve'
+  승인: 'approve', 반려: 'rework', 유지: 'keep', 개선: 'improve', 통과: 'pass', 수정: 'fix', 재작성: 'rewrite',
+  카피: 'copy', 메시지: 'copy', 네이밍: 'copy', 콘텐츠: 'content', 원고: 'content', 기획안: 'proposal', 제안서: 'proposal',
+  전략: 'strategy', 보고서: 'strategy', '실행 계획': 'plan', 계획: 'plan', 분석: 'analysis', 리서치: 'analysis', 기획서: 'spec'
 }
 
 /** enum 값 오류를 대소문자·한국어·동의어 기준으로 바로잡는다. 하나라도 고쳤으면 true */

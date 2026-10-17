@@ -1,7 +1,7 @@
 {
   "id": "min-brain",
   "name": "LIKE MIN Brain",
-  "version": "1.5.0",
+  "version": "2.0.0",
   "description": "MIN의 자기 분석·맥락 운영 방법론을 기반으로 한 MPM 두뇌 팩",
   "files": {
     "doctrine": "doctrine.md",

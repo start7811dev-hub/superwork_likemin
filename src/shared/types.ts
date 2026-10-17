@@ -1,5 +1,11 @@
 import type {
   AuditResult,
+  Brief,
+  BriefReview,
+  Candidates,
+  Deliverable,
+  DocTaste,
+  Taste,
   ChallengeQuestion,
   CloneReview,
   Factbook,
@@ -35,6 +41,8 @@ export interface Settings {
   delegation: boolean
   /** 질문 게이트: critical=판단이 크게 바뀔 때만, always=질문이 있으면 항상, never=가정으로 진행 */
   askMode: 'critical' | 'always' | 'never'
+  /** 브리프를 MIN이 보고 승인한 뒤 제작 */
+  briefApproval: boolean
   language: 'ko' | 'en'
   /**
    * 비용 예산. Claude API는 선불 잔액을 조회하는 API가 없으므로 잔여 = 예산 − 소진으로 계산한다.
@@ -56,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
   delegation: true,
   processMode: 'adaptive',
   askMode: 'critical',
+  briefApproval: true,
   language: 'ko',
   budget: { mode: 'monthly', amount: 0, since: '' },
   mcpServers: [],
@@ -109,6 +118,7 @@ export type PipelineEvent =
   | { type: 'log'; runId: string; nodeId: string; text: string; level: 'info' | 'warn' | 'error' }
   | { type: 'usage'; runId: string; usage: UsageSummary }
   | { type: 'questions'; runId: string; reading: string; questions: ChallengeQuestion[] }
+  | { type: 'brief'; runId: string; brief: Brief }
   | { type: 'record'; runId: string; record: RunRecord }
 
 export interface TaskRun {
@@ -154,6 +164,15 @@ export interface RunRecord {
   /** SUPER INSIGHT: AARRR·TOWS·STP 2.0·CDJ 분석과 MIN'S 4-3-2 THINKING */
   insight?: Insight
   synthesis?: Synthesis
+  /** 전략을 결과물로 옮기는 1장 브리프와 클론의 심사 */
+  workBrief?: Brief
+  briefReview?: BriefReview
+  /** 브리프 승인 단계에서 MIN이 준 수정 지시 */
+  briefNote?: string
+  /** 제작 기록: 발산 후보 · 취향 심사 · 문서 심사 */
+  production?: { candidates?: (Candidates['candidates'][number] & { angle: string })[]; taste?: Taste; docTaste?: DocTaste; fixed?: string[] }
+  /** 최종 결과물 */
+  deliverable?: Deliverable
   /** 결과 이후의 검증 이력: 재검증 → 고도화 → MPM 클론 */
   verification?: {
     review?: Review

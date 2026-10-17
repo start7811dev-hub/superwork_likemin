@@ -1,4 +1,4 @@
-import type { Factbook } from './schemas'
+import { DELIVERABLE_KINDS, type Brief, type Deliverable, type Factbook } from './schemas'
 import type { RunRecord } from './types'
 import { estimateCost } from './types'
 
@@ -8,7 +8,28 @@ const LEVEL: Record<string, string> = { high: '높음', medium: '중간', low: '
 const list = (items: string[] | undefined) => (items?.length ? items.map((i) => `- ${i}`).join('\n') : '- (없음)')
 const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ')
 
-/** 실행 결과를 공유·연동용 마크다운으로 변환한다. */
+/** 최종 결과물. v0.2 이전 기록은 전략 종합 안에 산출물이 있었다. */
+export function deliverableOf(run: RunRecord): Deliverable | undefined {
+  if (run.deliverable) return run.deliverable
+  const legacy = (run.synthesis as { deliverable?: { title: string; sections: { heading: string; body: string }[] } } | undefined)?.deliverable
+  return legacy?.sections.length ? { title: legacy.title, summary: '', concept: '', sections: legacy.sections } : undefined
+}
+
+export function briefToMarkdown(b: Brief, head = '## 1장 브리프'): string {
+  return [
+    `${head}\n\n**${DELIVERABLE_KINDS[b.kind]}** · ${b.output}`,
+    `| | |\n| --- | --- |\n| 받는 사람 | ${cell(b.audience)} |\n| 통찰 | ${cell(b.insight.truth)} |\n| 긴장 | ${cell(b.insight.tension)} |\n| 제안 한 줄 | **${cell(b.proposition)}** |\n| 도약 | ${cell(b.leap)} |\n| 톤 · 형식 | ${cell(b.tone)} · ${cell(b.format)} |\n| 합격선 | ${cell(b.bar)} |`,
+    `**버릴 것**\n${list(b.notThis)}`,
+    `**근거**\n${list(b.evidence.map((e) => `${e.point} (${e.source})`))}`,
+    `**반드시** ${b.must.join(' · ') || '-'}\n\n**절대** ${b.mustNot.join(' · ') || '-'}`,
+    b.angles.length ? `**탐색 각도**\n${list(b.angles.map((a) => `${a.name} — ${a.direction}`))}` : '',
+    b.outline.length ? `**제목 흐름**\n${b.outline.map((o, i) => `${i + 1}. ${o.heading}`).join('\n')}` : ''
+  ]
+    .filter(Boolean)
+    .join('\n\n')
+}
+
+/** 실행 결과를 공유·연동용 마크다운으로 변환한다. 순서: 결과물 → 브리프 → 전략 근거 */
 export function runToMarkdown(run: RunRecord): string {
   const out: string[] = []
   const s = run.synthesis
@@ -21,14 +42,19 @@ export function runToMarkdown(run: RunRecord): string {
   out.push(`## 요청\n\n${run.brief}`)
   if (run.materials?.length) out.push(`**참고 자료:** ${run.materials.map((m) => m.source).join(' · ')}`)
 
+  const d = deliverableOf(run)
+  if (d) {
+    out.push(`## ${d.title}${d.summary ? `\n\n${d.summary}` : ''}${d.concept ? `\n\n> ${d.concept}` : ''}`)
+    out.push(d.sections.map((x) => `### ${x.heading}\n\n${x.body}`).join('\n\n'))
+  }
+  if (run.workBrief) out.push(briefToMarkdown(run.workBrief))
+
   if (s) {
-    out.push(`## 요약\n\n${s.executiveSummary}`)
+    out.push(`# 전략 근거\n\n## 전략 결론\n\n${s.executiveSummary}`)
     out.push(
       `## 코어\n\n| 축 | 내용 |\n| --- | --- |\n| 목표 | ${cell(s.coreRestated.goal)} |\n| 목적 | ${cell(s.coreRestated.purpose)} |\n| 브랜드 | ${cell(s.coreRestated.brand)} |\n| 소비자 | ${cell(s.coreRestated.consumer)} |\n| 시장 | ${cell(s.coreRestated.market)} |`
     )
     if (run.answers?.length) out.push(`## MPM의 질문과 MIN의 답\n\n${run.answers.map((x) => `- **${x.question}** — ${x.answer}`).join('\n')}`)
-    if (s.deliverable?.sections.length)
-      out.push(`## 산출물: ${s.deliverable.title}\n\n${s.deliverable.sections.map((x) => `### ${x.heading}\n\n${x.body}`).join('\n\n')}`)
     const rec = s.recommendation
     out.push(
       `## 조건부 추천: ${rec.pick}\n\n${rec.rationale}\n\n**유효 조건**\n${list(rec.conditions)}\n\n**전환 계획:** ${rec.switchTo}`
@@ -109,6 +135,20 @@ export function runToMarkdown(run: RunRecord): string {
         v.clone ? `\n\n**최종 검증 B · MPM 클론**\n\n> ${v.clone.insight}\n\n- 의도·목적: ${v.clone.macro.intentPurpose}\n- 타깃·브랜드: ${v.clone.macro.targetBrand}\n- 시장: ${v.clone.macro.market}${v.clone.bigIssue ? `\n- 📣 직권 지시: ${v.clone.directive}` : ''}` : ''
       }${v.polish ? `\n\n**윤문** AI투 표현 ${v.polish.before}개 → ${v.polish.after}개` : ''}`
     )
+  }
+  const br = run.briefReview
+  const pr = run.production
+  if (br || pr) {
+    const parts = ['## 부록 B-3. 브리프 심사와 제작 기록']
+    if (br) parts.push(`**MPM 클론의 브리프 심사** — 도약 ${br.leapScore}/5 · ${br.generic ? '뻔함' : '고유함'} · ${br.scopeMatch ? '요청과 일치' : '요청과 다름'}\n\n> ${br.insight}${br.verdict === 'rewrite' ? `\n\n직권 지시: ${br.directive}` : ''}`)
+    if (run.briefNote) parts.push(`**MIN의 브리프 지시:** ${run.briefNote}`)
+    if (pr?.taste && pr.candidates) {
+      const picked = new Set(pr.taste.picks.map((p) => p.id))
+      parts.push(`**취향 심사** — 후보 ${pr.candidates.length}개 중 ${pr.taste.picks.length}개 채택\n\n버린 이유: ${pr.taste.killedPatterns.join(' / ')}`)
+      parts.push(pr.candidates.map((c, i) => `${picked.has(i) ? '- **[채택]** ' : '- '}${c.head} \`${c.angle}\``).join('\n'))
+    }
+    if (pr?.docTaste) parts.push(`**결과물 심사** — 제목 흐름 ${pr.docTaste.flowReads ? '통과' : '끊김'} · 도약 ${pr.docTaste.leapScore}/5${pr.fixed?.length ? ` · 고친 절: ${pr.fixed.join(', ')}` : ''}`)
+    out.push(parts.join('\n\n'))
   }
 
   if (run.factbook) out.push(factbookToMarkdown(run.factbook, '## 부록 D. Factbook', '###'))

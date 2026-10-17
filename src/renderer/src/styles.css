@@ -408,3 +408,25 @@ textarea.mono { font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
 .dl-sec h3 { margin: 0 0 8px; font-size: 16px; }
 .axes-legend { display: flex; flex-wrap: wrap; gap: 6px 20px; padding: 8px 0 10px; border-bottom: 1px solid var(--hair); margin-bottom: 10px; color: var(--ink-2); }
 .axes-legend b { color: var(--muted); font-weight: 600; margin-right: 4px; }
+
+/* ---------- v0.3: 결과물 · 1장 브리프 ---------- */
+.doc .concept { font-size: 24px; line-height: 1.4; font-weight: 700; letter-spacing: -.01em; margin: 4px 0 28px; }
+.doc .concept::before { content: '“'; color: var(--muted); margin-right: 2px; }
+.doc .concept::after { content: '”'; color: var(--muted); margin-left: 2px; }
+.brief-card { margin: 40px 0 8px; padding-top: 20px; border-top: 1px solid var(--ink); }
+.brief-card .brief-prop { font-size: 18px; font-weight: 700; line-height: 1.5; margin: 6px 0 16px; }
+.brief-dl { margin: 0; }
+.brief-dl > div { display: grid; grid-template-columns: 96px 1fr; gap: 16px; padding: 9px 0; border-top: 1px solid var(--line); }
+.brief-dl dt { font-size: 12px; font-weight: 600; color: var(--muted); padding-top: 2px; }
+.brief-dl dd { margin: 0; line-height: 1.6; }
+.brief-dl ol { margin: 0; padding-left: 18px; }
+.part-divider { margin: 56px 0 8px; padding-top: 14px; border-top: 2px solid var(--ink); }
+.cands { padding-left: 22px; }
+.cands li { padding: 3px 0; color: var(--muted); }
+.cands li span:first-child { color: var(--ink-2); }
+.cands li.picked span:first-child { color: var(--ink); font-weight: 700; }
+.gate .brief-card { margin-top: 8px; border-top: none; padding-top: 0; }
+.brief-gate { width: min(640px, calc(100% - 44px)); }
+.brief-gate textarea { width: 100%; min-height: 56px; margin: 10px 0 8px; }
+.brief-gate .brief-dl > div { grid-template-columns: 76px 1fr; padding: 7px 0; font-size: 13px; }
+.brief-gate .gate-foot { position: sticky; bottom: -18px; background: #fff; padding: 2px 0 4px; margin-bottom: -4px; border-top: 1px solid var(--line); }

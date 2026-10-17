@@ -13,6 +13,18 @@ import {
   ReviewSchema,
   CloneReviewSchema,
   InsightSchema,
+  BriefSchema,
+  BriefReviewSchema,
+  CandidatesSchema,
+  TasteSchema,
+  DeliverableSchema,
+  DocTasteSchema,
+  SectionFixSchema,
+  type Brief,
+  type BriefReview,
+  type Deliverable,
+  type DocTaste,
+  type Taste,
   type Insight,
   type Factbook,
   type Review,
@@ -37,8 +49,14 @@ const wait = (ms: number, signal: AbortSignal) =>
     })
   })
 
+/** 데모에서 발산형(카피) 제작을 보려면 SWLM_DEMO_KIND=copy */
+const COPY_MODE = process.env.SWLM_DEMO_KIND === 'copy'
+
 const canvas: ContextCanvas = {
   title: '구독형 밀키트 초기 고객 확보',
+  deliverable: COPY_MODE
+    ? { kind: 'copy', output: '런칭 캠페인 헤드라인과 보조 문구', notThis: '채널 운영 계획이나 측정 설계는 결과물이 아니다' }
+    : { kind: 'plan', output: '런칭 첫 90일 고객 확보 실행 계획서', notThis: '검증 지표 설계는 계획서의 한 절이지 계획서 자체가 아니다' },
   reframe: {
     surfaceRequest: '3개월 내 런칭할 30대 직장인 대상 구독 밀키트의 초기 고객 확보 전략',
     realProblem: '30대 직장인이 “구독”이라는 약속을 할 만큼 저녁 식사 문제를 반복적으로 느끼는지, 그리고 기존 대안(배달·편의점·마트 밀키트) 대비 바꿀 이유가 있는지 검증하는 것',
@@ -288,14 +306,6 @@ const simulation: Simulation = {
 
 const synthesis: Synthesis = {
   executiveSummary: '할인으로는 구독을 못 붙잡는다. 붙잡는 건 “오늘 저녁은 정해 줄게”라는 신뢰다. 사내 복지 파일럿(B)으로 4주 안에 확인하고, 2회차 유지율 60%가 나오면 결정 대행 구독(A)으로 넓힌다.',
-  deliverable: {
-    title: '초기 고객 확보 실행안',
-    sections: [
-      { heading: 'PROBLEM · 밀키트는 많은데, 메뉴 고민은 그대로', body: '밀키트를 사도 “오늘 뭐 먹지”는 여전히 내 몫이다.\n\n> 퇴근길에 메뉴 고민하다 결국 배달앱 켜요. — 30대 직장인 인터뷰 (데모)\n\n경쟁사는 메뉴 수로 싸운다. 같은 줄에 서는 순간 **도토리 키재기**다.' },
-      { heading: 'CONCEPT · 결정 대행', body: '> 오늘 저녁, 고민은 저희가 할게요.\n\n- 약속하는 것: 메뉴 결정에서 해방\n- 약속하지 않는 것: 최저가' },
-      { heading: 'ACTION · 4주 파일럿', body: '1. **1주차** HR 담당자 10명 인터뷰\n2. 2주차 제휴사 2곳 확정\n3. 3~4주차 사무실 픽업으로 첫 박스 배송\n\n성공 기준: 2회차 결제 유지율 60%.' }
-    ]
-  },
   coreRestated: { goal: canvas.goal, purpose: canvas.purpose, brand: canvas.core.brand, consumer: canvas.core.consumer, market: canvas.core.market },
   alternatives: [
     { id: 'A', name: '결정 대행 구독', archetype: '코어 강화형', thesis: '메뉴 고민 해소를 핵심 가치로, 취향 학습형 구독', influencePath: '개인화된 저녁이 “나를 아는 서비스” 경험으로 지인 추천 확산', cost: { estimate: '확인 필요 (개발 2~3개월 인력 기준 추정)', breakdown: ['큐레이션 개발 인력', '메뉴 R&D', '기회비용: 런칭 지연'], needsVerification: ['개발 인력 단가', '메뉴 원가'], valueShiftsWhen: ['자금 여력이 18개월 이상이면 학습 투자로서 가치 상승', '경쟁사가 유사 기능을 먼저 내면 가치 하락'] }, differentiation: '메뉴 수가 아니라 결정을 대신해 주는 정확도', keepInertia: '주간 장보기 리듬(주 1회 수령)', innovation: '취향 학습 기반 자동 큐레이션', omit: ['메뉴 직접 선택 화면(기본값에서 제외)'], firstImpression: '온보딩 3문항 후 “내 취향” 첫 박스', repeatUse: '건너뛰기·자동 조정으로 피로 없는 반복', howItWorks: ['온보딩 취향 진단', '주간 자동 큐레이션', '건너뛰기 무제한'], brandImpact: '“생각 안 해도 되는 저녁” 약속', consumerImpact: '결정 피로 감소', marketImpact: 'PB와 가격이 아닌 경험으로 경쟁', goalFit: 4, purposeFit: 5, tradeoffs: ['개발 비용'], edgeCases: ['취향 급변'], risks: ['큐레이션 품질'], killCriteria: ['2회차 유지율 40% 미만'], reversibility: 'medium', confidence: 'medium', firstSteps: ['취향 진단 프로토타입'] },
@@ -310,6 +320,120 @@ const synthesis: Synthesis = {
   factsVsAssumptions: { verifiedFacts: ['(데모) 검증된 사실 없음 — 실제 실행 시 리서치로 채워짐'], assumptions: ['반복 페인 존재', '사내 복지 수요'], unverified: ['CAC', '배송 단가'] },
   nextVerification: [{ check: '반복 페인', method: '사전 예약 랜딩 200명', ifTrue: 'A 개발 착수', ifFalse: 'C로 재정의' }],
   openQuestions: ['배송 권역', '목표 객단가']
+}
+
+const brief: Brief = {
+  kind: COPY_MODE ? 'copy' : 'plan',
+  output: COPY_MODE ? '런칭 캠페인 헤드라인 5개와 보조 문구 (사내 복지 채널 · 인스타그램)' : '런칭 첫 90일 고객 확보 실행 계획서 (절 5개, 창업팀 내부 결정용)',
+  audience: COPY_MODE ? '퇴근길 30대 직장인. 밀키트 광고를 이미 많이 봤고, 할인 문구에는 반응하지 않는다' : '창업팀 3명. 첫 고객은 광고로 모아야 한다고 믿고 있다',
+  insight: {
+    truth: '퇴근한 직장인은 요리가 귀찮은 것보다, 매일 저녁 메뉴를 정하는 일에 더 지쳐 있다',
+    tension: '건강하게 먹고 싶지만, 그걸 매일 결정할 힘은 남아 있지 않다'
+  },
+  proposition: '저녁 메뉴를 대신 정해 주는 구독. 첫 고객은 광고가 아니라 회사 복지 담당자가 데려온다',
+  leap: '분석에서 바로 나오는 결론은 "타깃 광고로 첫 500명을 모은다"였다. 하지만 대형 유통사 PB와 가격으로 싸우는 광고 판에서는 CAC를 감당할 수 없다. 그래서 고객이 이미 모여 있는 회사 복지 채널을 입구로 삼고, 약속은 메뉴 수가 아니라 결정 대행으로 바꿨다.',
+  notThis: ['메뉴 수 경쟁', '첫 달 반값 할인', '건강·신선·간편 같은 업계 공통 문구'],
+  evidence: [
+    { point: '저녁 해결 1순위는 배달(38%), 밀키트는 16%', source: '데모 설문' },
+    { point: '2회차 유지율이 LTV/CAC를 가장 크게 바꾼다', source: 'SUPER INSIGHT 유닛 이코노믹스' }
+  ],
+  tone: COPY_MODE ? '친구가 대신 정해 주는 말투. 가볍지만 믿음직하게' : '창업팀이 바로 실행할 수 있게 단정적으로',
+  format: COPY_MODE ? '헤드 25자 안팎 + 설명 두 문장' : '절 5개, 각 절 첫 문장이 결론',
+  must: ['2회차 결제 유지율 60%를 판정 기준으로 쓴다'],
+  mustNot: ['광고 예산을 전제로 한 계획', '확인되지 않은 수치를 사실처럼 쓰기'],
+  bar: COPY_MODE ? '광고판에서 처음 봐도 "아, 메뉴 고민을 없애 주는 거구나"가 3초 안에 읽혀야 한다' : '읽고 나서 다음 주 월요일에 무엇을 할지 바로 알 수 있어야 한다',
+  angles: [
+    { name: '결정 대행', direction: '메뉴를 고르는 수고를 대신 진다는 약속' },
+    { name: '퇴근길 장면', direction: '퇴근길에 메뉴를 고민하다 배달앱을 켜는 순간을 정면으로 다룬다' },
+    { name: '회사 복지', direction: '회사가 저녁 고민까지 챙겨 준다는 복지의 언어' }
+  ],
+  outline: COPY_MODE
+    ? []
+    : [
+        { heading: '광고로는 첫 500명을 감당할 수 없다', point: '대형 유통사 PB와 가격으로 싸우는 광고 판에서 CAC 45,000원은 회수되지 않습니다.' },
+        { heading: '첫 고객은 회사 복지 안에 이미 모여 있다', point: '사내 복지 담당자 한 명을 설득하면 직원 수십 명이 한 번에 첫 박스를 받습니다.' },
+        { heading: '첫 박스가 결정 대행을 증명해야 2회차가 온다', point: '첫 박스에서 메뉴를 고르지 않아도 됐다는 경험이 2회차 결제를 만듭니다.' },
+        { heading: '4주 파일럿으로 유지율 60%를 확인한다', point: '제휴사 2곳, 4주, 2회차 유지율 하나만 봅니다.' },
+        { heading: '유지율이 나오면 개인 구독으로 넓힌다', point: '파일럿 직원의 개인 결제 전환율 15%가 확장 신호입니다.' }
+      ],
+  judgment: {
+    decision: '결정 대행을 약속하고, 회사 복지를 입구로 삼는다',
+    basis: [{ principle: '따지는 머리와 만드는 머리를 나눈다', source: 'doctrine §0.11-2', application: '전략의 추천(B → A)에서 통찰 하나와 입구 하나만 뽑았다' }],
+    counterCheck: '복지 예산이 연초에 몰려 있어 시점이 맞지 않을 수 있다. 그래도 제휴 2곳이면 파일럿은 가능하다',
+    confidence: 'medium'
+  }
+}
+
+const briefReview: BriefReview = {
+  judgment: brief.judgment,
+  scopeMatch: true,
+  generic: false,
+  leapScore: 4,
+  insight: '"결정 대행"은 경쟁사 브리프에 들어가면 어색하다. 메뉴 수로 싸우는 경쟁사와 반대 방향이라 고유하다.',
+  verdict: 'pass',
+  directive: ''
+}
+
+const CANDIDATE_BANK: Record<string, { head: string; body: string }[]> = {
+  '결정 대행': [
+    { head: '오늘 저녁, 고민은 저희가 할게요', body: '매주 취향에 맞춘 메뉴가 정해진 채로 도착합니다. 퇴근길에 메뉴를 고르던 10분이 사라집니다.' },
+    { head: '메뉴 정하는 건 저희 일입니다', body: '' },
+    { head: '고르지 않아도 되는 저녁', body: '' },
+    { head: '건강한 한 끼를 간편하게', body: '' }
+  ],
+  '퇴근길 장면': [
+    { head: '배달앱 켜기 전에, 이미 정해져 있어요', body: '퇴근 전 알림으로 오늘 메뉴를 먼저 알려 드립니다. 배달앱을 열 이유가 없어집니다.' },
+    { head: '퇴근길 10분, 메뉴 고민 끝', body: '' },
+    { head: '오늘 뭐 먹지? 이제 안 물어도 됩니다', body: '' }
+  ],
+  '회사 복지': [
+    { head: '회사가 저녁 메뉴까지 챙겨 줍니다', body: '사내 복지로 첫 4주를 받아 보고, 마음에 들면 개인 구독으로 이어 갑니다.' },
+    { head: '복지 포인트로 받는 저녁', body: '' },
+    { head: '야근 없는 날의 복지', body: '' }
+  ]
+}
+
+const taste: Taste = {
+  scored: [],
+  picks: [
+    { id: 0, why: '약속이 한 줄에 다 들어 있고, 경쟁사 문구와 반대 방향이다' },
+    { id: 4, why: '퇴근길 배달앱이라는 실제 장면을 정면으로 건드린다' },
+    { id: 7, why: '복지 채널에서 그대로 쓸 수 있다' }
+  ],
+  killedPatterns: ['"건강·간편"처럼 업계 공통 문구', '장면만 있고 무엇을 해 주는지 빠진 문구'],
+  sharpen: '헤드는 25자 안에서 "대신 정해 준다"는 약속을 남기고, 설명에는 무엇이(알림·큐레이션) 해 주는지 넣는다.'
+}
+
+const deliverable: Deliverable = COPY_MODE
+  ? {
+      title: '런칭 캠페인 헤드라인',
+      summary: '"저녁 메뉴를 대신 정해 준다"는 약속을 헤드라인 3개로 만들었습니다. 경쟁사가 메뉴 수와 할인을 말하는 동안, 우리는 결정 피로를 덜어 준다는 한 가지만 말합니다. 사내 복지 채널에는 3번을, 인스타그램에는 1번과 2번을 먼저 씁니다.',
+      concept: '오늘 저녁, 고민은 저희가 할게요',
+      sections: [
+        { heading: '1. 오늘 저녁, 고민은 저희가 할게요', body: '매주 취향에 맞춘 메뉴가 정해진 채로 도착합니다. 퇴근길에 메뉴를 고르던 시간이 사라집니다.\n\n- 쓰임: 인스타그램 메인, 랜딩 첫 화면' },
+        { heading: '2. 배달앱 켜기 전에, 이미 정해져 있어요', body: '퇴근 전 알림이 오늘 메뉴를 먼저 알려 줍니다. 그래서 배달앱을 열 이유가 없어집니다.\n\n- 쓰임: 퇴근 시간대 인스타그램 스토리' },
+        { heading: '3. 회사가 저녁 메뉴까지 챙겨 줍니다', body: '사내 복지로 첫 4주를 받아 보고, 마음에 들면 개인 구독으로 이어 갑니다.\n\n- 쓰임: 사내 복지몰, HR 공지' }
+      ]
+    }
+  : {
+      title: '런칭 90일 고객 확보 실행 계획',
+      summary: '첫 500명은 광고 대신 회사 복지 채널로 모읍니다. 광고로는 CAC를 회수할 수 없지만, 복지 담당자 한 명을 설득하면 직원 수십 명이 한 번에 첫 박스를 받기 때문입니다. 다음 주에는 HR 담당자 10명 인터뷰부터 시작합니다.',
+      concept: '저녁 메뉴를 대신 정해 주는 구독, 첫 고객은 회사 복지가 데려온다',
+      sections: [
+        { heading: '광고로는 첫 500명을 감당할 수 없다', body: '대형 유통사 PB와 가격으로 싸우는 광고 판에서는 CAC 45,000원을 회수할 수 없습니다. 현재 가정(월 59,000원, 마진 32%, 이탈 18%)에서 LTV/CAC는 2.3배에 그칩니다.\n\n> 퇴근길에 메뉴 고민하다 결국 배달앱 켜요. — 30대 직장인 인터뷰 (데모)' },
+        { heading: '첫 고객은 회사 복지 안에 이미 모여 있다', body: '사내 복지 담당자 한 명을 설득하면 직원 수십 명이 한 번에 첫 박스를 받습니다. 그래서 영업 인력 1명이 4주 동안 제휴사 2곳을 여는 것을 첫 목표로 잡습니다.' },
+        { heading: '첫 박스가 결정 대행을 증명해야 2회차가 온다', body: '첫 박스를 받을 때 메뉴를 고르지 않아도 됐다는 경험이 2회차 결제로 이어집니다. 그래서 온보딩은 취향 질문 3개로 끝내고, 메뉴 선택 화면은 기본값에서 뺍니다.' },
+        { heading: '4주 파일럿으로 유지율 60%를 확인한다', body: '1. **1주차** HR 담당자 10명 인터뷰\n2. 2주차 제휴사 2곳 확정\n3. 3~4주차 사무실 픽업으로 첫 박스 배송\n\n판정 기준은 2회차 결제 유지율 60% 하나입니다.' },
+        { heading: '유지율이 나오면 개인 구독으로 넓힌다', body: '파일럿 직원의 개인 결제 전환율이 15%를 넘으면 개인 구독을 엽니다. 넘지 못하면 단건 구매와 멤버십 구조(대안 C)로 바꿉니다.' }
+      ]
+    }
+
+const docTaste: DocTaste = {
+  judgment: brief.judgment,
+  flowReads: true,
+  leapScore: 4,
+  verdict: 'fix',
+  issues: [{ heading: '첫 고객은 회사 복지 안에 이미 모여 있다', problem: '복지 담당자가 왜 받아들이는지가 빠졌다', fix: '담당자가 얻는 것(직원 만족 지표, 예산 소진)을 한 문장으로 넣는다' }]
 }
 
 export class DemoEngine {
@@ -360,6 +484,25 @@ export class DemoEngine {
     }
     if (s === SimulationSchema) return simulation as never
     if (s === SynthesisSchema) return synthesis as never
+    if (s === BriefSchema) return brief as never
+    if (s === BriefReviewSchema) return briefReview as never
+    if (s === CandidatesSchema) {
+      const angle = user.match(/<angle>\n(.+?) —/)?.[1] ?? '결정 대행'
+      return { candidates: (CANDIDATE_BANK[angle] ?? CANDIDATE_BANK['결정 대행']).map((c) => ({ ...c, why: `${angle} 각도` })) } as never
+    }
+    if (s === TasteSchema) return taste as never
+    if (s === DeliverableSchema) return structuredClone(deliverable) as never
+    if (s === DocTasteSchema) return docTaste as never
+    if (s === SectionFixSchema)
+      return {
+        sections: [
+          {
+            heading: '첫 고객은 회사 복지 안에 이미 모여 있다',
+            originalHeading: '첫 고객은 회사 복지 안에 이미 모여 있다',
+            body: '사내 복지 담당자 한 명을 설득하면 직원 수십 명이 한 번에 첫 박스를 받습니다. 담당자에게는 직원 만족도 설문에 쓸 수 있는 복지 항목이 하나 늘어납니다. 그래서 영업 인력 1명이 4주 동안 제휴사 2곳을 여는 것을 첫 목표로 잡습니다.'
+          }
+        ]
+      } as never
     throw new Error('demo: unknown schema')
   }
 

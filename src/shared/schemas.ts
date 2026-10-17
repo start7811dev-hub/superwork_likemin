@@ -62,6 +62,19 @@ export type Method = z.infer<typeof MethodSchema>
 
 const stageToggle = z.object({ run: z.boolean(), reason: z.string() })
 
+/** 결과물 유형 — 유형마다 제작 방식(발산·문서)과 문체가 다르다 */
+export const DELIVERABLE_KINDS = {
+  copy: '카피·메시지·네이밍',
+  content: '콘텐츠 원고',
+  proposal: '기획안·제안서',
+  strategy: '전략 보고서',
+  plan: '실행 계획',
+  analysis: '분석·리서치',
+  spec: '제품·서비스 기획서'
+} as const
+export const DeliverableKindSchema = z.enum(['copy', 'content', 'proposal', 'strategy', 'plan', 'analysis', 'spec'])
+export type DeliverableKind = z.infer<typeof DeliverableKindSchema>
+
 /** MPM이 E2E 관점에서 설계하는 공정 (doctrine §0.10) */
 export const ProcessPlanSchema = z.object({
   scale: z.enum(['focused', 'standard', 'full']).describe('focused=정의된 범위 집중, full=백지에서 전략까지'),
@@ -73,7 +86,7 @@ export const ProcessPlanSchema = z.object({
   methods: z.array(MethodSchema).describe('SUPER INSIGHT에 쓸 방법론. 비우면 SUPER INSIGHT 생략'),
   methodsReason: z.string(),
   refine: stageToggle,
-  clone: stageToggle
+  clone: stageToggle.describe('MPM 클론의 브리프 심사. 결과물의 방향을 정하는 단계라 거의 항상 켠다')
 })
 export type ProcessPlan = z.infer<typeof ProcessPlanSchema>
 
@@ -127,6 +140,11 @@ export const ContextCanvasSchema = z.object({
     )
     .describe('첨부 파일·링크 자료 요약. 자료가 없으면 빈 배열'),
   initialClaims: z.array(z.string()).describe('핵심 주장 가설 1~2개 — 이후 분석으로 검증·수정된다'),
+  deliverable: z.object({
+    kind: DeliverableKindSchema.describe('요청된 결과물의 유형'),
+    output: z.string().describe('MIN에게 넘길 결과물 한 줄 정의 — 무엇을, 얼마나, 어디에 쓰는가'),
+    notThis: z.string().describe('결과물로 착각하기 쉬운 것. 예: 목적을 지키는 장치(측정·검증·리스크 관리)는 결과물이 아니라 부록이다')
+  }),
   process: ProcessPlanSchema,
   intent: z.object({
     reading: z.string().describe('MPM이 파악한 요청자의 의도'),
@@ -251,18 +269,7 @@ export const AlternativeSchema = z.object({
 export type Alternative = z.infer<typeof AlternativeSchema>
 
 export const SynthesisSchema = z.object({
-  executiveSummary: z.string().describe('3~5문장. 결론과 그 이유만. 세부 내용·카피·표는 deliverable과 대안에 쓴다'),
-  deliverable: z
-    .object({
-      title: z.string().describe('산출물 이름. 예: 후킹 메시지 체계'),
-      sections: z.array(
-        z.object({
-          heading: z.string(),
-          body: z.string().describe('마크다운. 짧은 문단, 목록, 문단당 강조 1개 이내, > 인용은 실제 카피·원문에만')
-        })
-      )
-    })
-    .describe('MIN이 요청한 실제 산출물(메시지·카피·기획안·구성안 등)을 바로 쓸 수 있는 형태로. 추천 대안 기준. 요청이 판단만이면 빈 sections'),
+  executiveSummary: z.string().describe('전략 결론 3~5문장. 어떤 방향을 왜 고르는가. 결과물 자체(카피·문서)는 이후 브리프와 제작 단계가 만든다'),
   coreRestated: z.object({
     goal: z.string(),
     purpose: z.string(),
@@ -506,3 +513,94 @@ export const InsightSchema = z.object({
     .describe('2 CORE KEY-CLAIMS — 정확히 2개')
 })
 export type Insight = z.infer<typeof InsightSchema>
+
+/* ---------- BRIEF: 전략을 결과물로 옮기는 1장 (가장 에너지를 많이 쓰는 단계) ---------- */
+export const BriefSchema = z.object({
+  kind: DeliverableKindSchema,
+  output: z.string().describe('만들 것: 무엇을, 몇 개·얼마 분량으로, 어디에 쓰는가'),
+  audience: z.string().describe('결과물을 받아 보는 사람. 그 사람이 지금 알고 믿는 것'),
+  insight: z.object({
+    truth: z.string().describe('타깃이 이미 겪고 있지만 말로 정리하지 못한 사실 한 가지'),
+    tension: z.string().describe('그 사실 안의 긴장 — 원하는 것과 막는 것')
+  }),
+  proposition: z.string().describe('제안 한 줄 — 결과물 전체가 이 위에 선다'),
+  leap: z.string().describe('분석에서 바로 나오는 뻔한 결론은 무엇이었고, 이 제안은 어디서 그것을 넘었는가'),
+  notThis: z.array(z.string()).describe('경쟁사·업계가 다 하는 말, 이번에 버릴 뻔한 접근'),
+  evidence: z.array(z.object({ point: z.string(), source: z.string() })).describe('제안을 믿게 할 근거 2~4개'),
+  tone: z.string(),
+  format: z.string().describe('형식·길이·채널 규격'),
+  must: z.array(z.string()),
+  mustNot: z.array(z.string()),
+  bar: z.string().describe('합격선 — 이것보다 못하면 다시 만든다'),
+  angles: z.array(z.object({ name: z.string(), direction: z.string() })).describe('탐색할 서로 다른 각도 3~6개'),
+  outline: z
+    .array(z.object({ heading: z.string().describe('결론이 담긴 제목'), point: z.string().describe('이 절의 첫 문장 = 요점') }))
+    .describe('문서형 결과물의 제목 흐름(진단 → 원리 → 해법). 제목만 이어 읽어도 논지가 서야 한다. 카피형이면 빈 배열'),
+  judgment: JudgmentSchema
+})
+export type Brief = z.infer<typeof BriefSchema>
+
+export const BriefReviewSchema = z.object({
+  judgment: JudgmentSchema,
+  scopeMatch: z.boolean().describe('브리프가 MIN이 요청한 결과물과 같은 종류를 만들게 하는가'),
+  generic: z.boolean().describe('통찰·제안이 경쟁사 브리프에도 그대로 들어갈 말이면 true'),
+  leapScore: z.number().describe('도약 1~5. 분석을 그대로 옮겨 적었으면 1'),
+  insight: z.string().describe('디렉터 관점에서 본 이 브리프의 핵심 문제 또는 강점'),
+  verdict: z.enum(['pass', 'rewrite']),
+  directive: z.string().describe('rewrite일 때 한 번에 고칠 직권 지시. pass면 빈 문자열')
+})
+export type BriefReview = z.infer<typeof BriefReviewSchema>
+
+/* ---------- PRODUCE: 결과물 유형별 제작 ---------- */
+export const CandidatesSchema = z.object({
+  candidates: z.array(
+    z.object({
+      head: z.string().describe('후보 본문 — 헤드라인·카피·이름·첫 문장'),
+      body: z.string().describe('보조 문장 또는 쓰임 설명. 없으면 빈 문자열'),
+      why: z.string().describe('이 후보가 브리프의 통찰을 어떻게 건드리는가 (한 줄)')
+    })
+  )
+})
+export type Candidates = z.infer<typeof CandidatesSchema>
+
+export const TasteSchema = z.object({
+  scored: z
+    .array(
+      z.object({
+        id: z.number(),
+        stop: z.number().describe('첫 줄에서 멈추게 하나 1~5'),
+        fresh: z.number().describe('남의 브리프에서도 나올 말이 아닌가 1~5'),
+        truth: z.number().describe('타깃의 실제 경험에 닿는가 1~5'),
+        fit: z.number().describe('제안·브랜드 약속과 맞는가 1~5'),
+        clarity: z.number().describe('한 번에 읽히는가 1~5'),
+        guardrail: z.boolean().describe('과장·허위·금지 사항이 없으면 true'),
+        note: z.string()
+      })
+    )
+    .describe('모든 후보 채점'),
+  picks: z.array(z.object({ id: z.number(), why: z.string() })).describe('살릴 후보 3~7개'),
+  killedPatterns: z.array(z.string()).describe('버린 후보들의 공통 이유'),
+  sharpen: z.string().describe('살린 후보를 더 날카롭게 만들 지시')
+})
+export type Taste = z.infer<typeof TasteSchema>
+
+export const DeliverableSchema = z.object({
+  title: z.string(),
+  summary: z.string().describe('3줄: 무엇을 만들었고, 왜 이 방향인가, 바로 할 일'),
+  concept: z.string().describe('결과물이 서 있는 제안 한 줄'),
+  sections: z.array(z.object({ heading: z.string(), body: z.string().describe('마크다운') }))
+})
+export type Deliverable = z.infer<typeof DeliverableSchema>
+
+export const DocTasteSchema = z.object({
+  judgment: JudgmentSchema,
+  flowReads: z.boolean().describe('제목만 이어 읽어도 논지가 서는가'),
+  leapScore: z.number().describe('도약 1~5'),
+  verdict: z.enum(['pass', 'fix']),
+  issues: z.array(z.object({ heading: z.string().describe('고칠 절의 제목 그대로'), problem: z.string(), fix: z.string() }))
+})
+export type DocTaste = z.infer<typeof DocTasteSchema>
+
+export const SectionFixSchema = z.object({
+  sections: z.array(z.object({ heading: z.string().describe('원래 제목 또는 고친 제목'), originalHeading: z.string().describe('고치기 전 제목'), body: z.string() }))
+})

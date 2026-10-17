@@ -178,14 +178,37 @@ async function devCapture(dir: string): Promise<void> {
     writeFileSync(join(dir, `${name}.png`), img.toPNG())
   }
   await shot('0-idle')
-  const id = startRun({ apiKey: null, settings: loadSettings(), brief: '30대 직장인 대상 구독형 밀키트 서비스 초기 고객 확보 전략', depth: 'standard', emit: (ev) => win?.webContents.send('runs:event', ev) })
+  let onBrief: () => void = () => {}
+  let onDone: () => void = () => {}
+  const briefShown = new Promise<void>((r) => (onBrief = r))
+  const finished = new Promise<void>((r) => (onDone = r))
+  const id = startRun({
+    apiKey: null,
+    settings: { ...loadSettings(), briefApproval: true },
+    brief: process.env.SWLM_DEMO_BRIEF ?? '30대 직장인 대상 구독형 밀키트 서비스 초기 고객 확보 전략',
+    depth: 'standard',
+    emit: (ev) => {
+      win?.webContents.send('runs:event', ev)
+      if (ev.type === 'brief') onBrief()
+      if (ev.type === 'run' && ev.status !== 'started') onDone()
+    }
+  })
   await wait(5000)
   await shot('1-question')
   answerRun(id, ['매주 오는 단골을 만드는 게 목표'])
-  for (const [t, name] of [[11000, '2-factbook'], [12000, '3-audit'], [19000, '4-synth'], [10000, '5-review'], [9000, '6-clone'], [14000, '7-done']] as const) {
+  for (const [t, name] of [[11000, '2-factbook'], [12000, '3-audit'], [19000, '4-synth']] as const) {
     await wait(t)
     await shot(name)
   }
+  await briefShown
+  await wait(1200)
+  await shot('5-brief-gate')
+  answerRun(id, null)
+  await wait(6000)
+  await shot('6-produce')
+  await finished
+  await wait(1500)
+  await shot('7-done')
   const click = (label: string, scope = 'button') =>
     win!.webContents.executeJavaScript(`var b = [...document.querySelectorAll(${JSON.stringify(scope)})].find(b => b.textContent.trim().startsWith(${JSON.stringify(label)})); if (b) b.click(); !!b`)
   const scrollTo = (sel: string) => win!.webContents.executeJavaScript(`document.querySelector(${JSON.stringify(sel)})?.scrollIntoView({ block: 'start' })`)

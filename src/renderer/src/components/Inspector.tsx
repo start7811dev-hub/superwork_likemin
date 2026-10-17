@@ -266,9 +266,58 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
 
   if (id === 'review') return r.verification?.review ? <ReviewView r={r.verification.review} title="재검증" /> : <p className="muted">결과가 나오면 다시 고민합니다</p>
   if (id === 'refine') return r.verification?.refine ? <ReviewView r={r.verification.refine} title="고도화" /> : <p className="muted">재검증 이후 디테일을 다듬습니다</p>
+  if (id === 'brief') {
+    const b = r.workBrief
+    if (!b) return <p className="muted">전략이 끝나면 MPM이 결과물을 위한 1장 브리프를 씁니다</p>
+    return (
+      <>
+        <Sec title="제안 한 줄"><p><b>{b.proposition}</b></p></Sec>
+        <Sec title="통찰"><p>{b.insight.truth}</p><p className="small muted">긴장: {b.insight.tension}</p></Sec>
+        <Sec title="도약"><p>{b.leap}</p></Sec>
+        <Sec title="버릴 것"><Ul items={b.notThis} /></Sec>
+        <Sec title="만들 것"><p>{b.output}</p><p className="small muted">{b.format}</p></Sec>
+        {r.briefNote && <Sec title="MIN의 지시"><p>{r.briefNote}</p></Sec>}
+        <JudgmentView j={b.judgment} />
+      </>
+    )
+  }
+  if (id === 'produce' || id === 'taste') {
+    const pd = r.production
+    if (!pd) return <p className="muted">브리프가 승인되면 결과물 유형에 맞게 제작합니다</p>
+    if (pd.candidates) {
+      const picked = new Map(pd.taste?.picks.map((p) => [p.id, p.why]) ?? [])
+      return (
+        <>
+          {pd.taste && <Sec title="버린 이유"><Ul items={pd.taste.killedPatterns} /></Sec>}
+          {pd.taste && <Sec title="다듬는 방향"><p>{pd.taste.sharpen}</p></Sec>}
+          <Sec title={`후보 ${pd.candidates.length}개${pd.taste ? ` · 채택 ${pd.taste.picks.length}` : ''}`}>
+            <ol className="cands">{pd.candidates.map((c, i) => <li key={i} className={picked.has(i) ? 'picked' : ''}><span>{c.head}</span> <span className="muted small">{c.angle}</span></li>)}</ol>
+          </Sec>
+        </>
+      )
+    }
+    const dt = pd.docTaste
+    return (
+      <>
+        {r.deliverable && <Sec title="제목 흐름"><ol>{r.deliverable.sections.map((x, i) => <li key={i}>{x.heading}</li>)}</ol></Sec>}
+        {dt && <Sec title={`결과물 심사 · 도약 ${dt.leapScore}/5`}><ul>{dt.issues.map((x, i) => <li key={i}><b>{x.heading}</b> {x.problem} → {x.fix}</li>)}</ul></Sec>}
+      </>
+    )
+  }
+  if (id === 'clone' && r.briefReview) {
+    const c = r.briefReview
+    return (
+      <>
+        <Sec title="클론의 브리프 심사"><p><b>{c.insight}</b></p></Sec>
+        <Sec title="판정"><p>도약 {c.leapScore}/5 · {c.generic ? '경쟁사 브리프에도 들어갈 말' : '고유함'} · {c.scopeMatch ? '요청과 같은 결과물' : '요청과 다른 결과물'}</p></Sec>
+        {c.verdict === 'rewrite' && <Sec title="직권 지시"><p>{c.directive}</p></Sec>}
+        <JudgmentView j={c.judgment} />
+      </>
+    )
+  }
   if (id === 'clone') {
     const c = r.verification?.clone
-    if (!c) return <p className="muted">고도화 이후 MPM 클론이 거시 관점에서 검증합니다</p>
+    if (!c) return <p className="muted">브리프가 나오면 MPM 클론이 거시 관점에서 심사합니다</p>
     return (
       <>
         <Sec title="클론의 통찰"><p><b>{c.insight}</b></p></Sec>
@@ -302,6 +351,17 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
     )
   }
 
+  if (id === 'deliver' && r.deliverable) {
+    const d = r.deliverable
+    return (
+      <>
+        <Sec title={d.title}><p>{d.summary}</p></Sec>
+        {d.concept && <Sec title="콘셉트"><p><b>{d.concept}</b></p></Sec>}
+        <Sec title="구성"><ol>{d.sections.map((x, i) => <li key={i}>{x.heading}</li>)}</ol></Sec>
+        {r.verification?.polish && <Sec title="윤문"><p>AI투 표현 {r.verification.polish.before}개 → {r.verification.polish.after}개</p></Sec>}
+      </>
+    )
+  }
   if (id === 'synthesize' || id === 'deliver') {
     const s = r.synthesis
     if (!s) return <p className="muted">종합 대기 중</p>
@@ -328,9 +388,12 @@ const TITLES: Record<string, string> = {
   insight: 'SUPER INSIGHT 연구소',
   review: 'MPM · 재검증',
   refine: 'MPM · 최종 검증 A (고도화)',
-  clone: 'MPM 클론 · 최종 검증 B',
-  synthesize: 'MPM · 종합',
-  deliver: '리포트'
+  clone: 'MPM 클론 · 브리프 심사',
+  synthesize: 'MPM · 전략 종합',
+  brief: 'MPM · 1장 브리프',
+  produce: '제작 스튜디오',
+  taste: 'MPM · 취향 심사',
+  deliver: '최종 결과물'
 }
 
 export default function Inspector({ live, selected }: { live: LiveState; selected: string | null }) {

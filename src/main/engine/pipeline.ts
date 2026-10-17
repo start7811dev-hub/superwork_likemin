@@ -16,8 +16,17 @@ import { randomUUID } from 'node:crypto'
 import {
   type ChallengeQuestion,
   AuditResultSchema,
-  CloneReviewSchema,
+  BriefReviewSchema,
+  BriefSchema,
+  CandidatesSchema,
   ContextCanvasSchema,
+  DeliverableSchema,
+  DocTasteSchema,
+  SectionFixSchema,
+  TasteSchema,
+  type Brief,
+  type Deliverable,
+  type DeliverableKind,
   FactbookSchema,
   InsightSchema,
   ReviewSchema,
@@ -32,7 +41,8 @@ import {
   type TaskSpec,
   type Insight,
   type Simulation,
-  METHODS
+  METHODS,
+  DELIVERABLE_KINDS
 } from '../../shared/schemas'
 import {
   DEPTH_EFFORT,
@@ -55,6 +65,19 @@ import { collectStrings, lintVoice } from './voice'
 import * as P from './prompts'
 
 const MAX_TASKS = 6
+
+/** 결과물 유형별 제작 방식 */
+const PRODUCTION: Record<DeliverableKind, { mode: 'diverge' | 'document'; copy: boolean }> = {
+  copy: { mode: 'diverge', copy: true },
+  content: { mode: 'document', copy: true },
+  proposal: { mode: 'document', copy: false },
+  strategy: { mode: 'document', copy: false },
+  plan: { mode: 'document', copy: false },
+  analysis: { mode: 'document', copy: false },
+  spec: { mode: 'document', copy: false }
+}
+/** 발산형 결과물의 후보 수 */
+const CANDIDATES: Record<Depth, number> = { quick: 18, standard: 30, deep: 42 }
 
 export interface StartArgs {
   /** 없으면 데모 엔진으로 실행 */
@@ -576,39 +599,194 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     node('refine', 'done', refine.verdict === 'improve' ? `고도화 ${refine.issues.length}건` : '유지')
     }
 
-    /* ---- 9. 최종 검증 B: MPM 클론 (거시 디렉터, 직권 지시 1회) ---- */
-    packet('refine', 'clone', 'final')
-    if (!proc.clone.run) {
-      skip('clone', proc.clone.reason)
-    } else {
-    node('clone', 'running', '숲을 보는 중')
-    const clone = await engine.structured({
+    /* ---- 9. BRIEF: 전략을 결과물로 옮기는 1장 (doctrine §0.11) ---- */
+    packet('refine', 'brief', 'final')
+    node('brief', 'running', '1장 브리프 작성 중')
+    const writeBrief = (previous?: Brief, directive?: string) =>
+      engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.brief),
+        user: P.briefUser(canvas, result, { insight, factbook: run.factbook, simulation, qa: run.answers, previous, directive }),
+        effort: effort.mpm === 'low' ? 'medium' : 'max',
+        signal,
+        maxTokens: 32000,
+        schema: BriefSchema,
+        validate: (b) =>
+          b.angles.length < 3
+            ? '서로 다른 탐색 각도(angles)를 3개 이상 써라.'
+            : b.kind !== 'copy' && b.outline.length < 2
+              ? '문서형 결과물이다. 제목 흐름(outline)을 2개 이상 써라.'
+              : null
+      })
+    let brief = await writeBrief()
+    run.workBrief = brief
+    log('brief', `제안 한 줄: ${brief.proposition}`)
+    log('brief', `도약: ${brief.leap}`)
+    persist()
+
+    // MPM 클론: 결과물이 아니라 브리프를 심사한다
+    node('brief', 'done', DELIVERABLE_KINDS[brief.kind])
+    packet('brief', 'clone', 'final')
+    node('clone', 'running', '브리프 심사 — 숲을 보는 중')
+    const briefReview = await engine.structured({
       model: models.mpm,
-      system: system(P.ROLE.clone),
-      user: P.cloneUser(canvas, result, simulation, insight),
+      system: system(P.ROLE.briefReview),
+      user: P.briefReviewUser(canvas, brief),
       effort: effort.mpm,
       signal,
-      schema: CloneReviewSchema
+      schema: BriefReviewSchema
     })
-    verification.clone = clone
-    log('clone', `MPM 클론의 통찰: ${clone.insight}`)
-    if (clone.bigIssue && clone.directive.trim()) {
+    run.briefReview = briefReview
+    log('clone', `MPM 클론: ${briefReview.insight} (도약 ${briefReview.leapScore}/5${briefReview.generic ? ' · 뻔함' : ''}${briefReview.scopeMatch ? '' : ' · 요청과 다른 결과물'})`)
+    if (briefReview.verdict === 'rewrite' && briefReview.directive.trim()) {
       node('clone', 'running', '직권 지시!')
-      packet('clone', 'synthesize', 'directive')
-      log('clone', `직권 지시: ${clone.directive}`, 'warn')
-      result = await revise(P.cloneToInstructions(clone))
-      commit('클론 직권 지시 반영')
-    } else {
+      packet('clone', 'brief', 'directive')
+      log('clone', `직권 지시: ${briefReview.directive}`, 'warn')
+      brief = await writeBrief(brief, `MPM 클론의 직권 지시 (최우선): ${briefReview.directive}`)
+      run.workBrief = brief
+      log('brief', `다시 쓴 제안 한 줄: ${brief.proposition}`)
+    }
+    node('clone', 'done', briefReview.verdict === 'rewrite' ? '직권 지시 반영' : '브리프 통과')
+    persist()
+
+    // MIN의 브리프 승인
+    if (settings.briefApproval) {
+      node('brief', 'waiting', 'MIN의 브리프 승인 대기')
+      log('brief', 'MIN에게 브리프를 보여 주고 승인을 기다립니다.', 'warn')
+      emit({ type: 'brief', runId, brief })
+      const ans = await waitForAnswer(runId, signal)
+      const note = ans?.[0]?.trim()
+      if (note) {
+        run.briefNote = note
+        node('brief', 'running', 'MIN의 지시로 브리프 수정 중')
+        brief = await writeBrief(brief, `MIN의 지시 (최우선): ${note}`)
+        run.workBrief = brief
+        log('brief', `MIN의 지시 반영: ${brief.proposition}`)
+      } else log('brief', 'MIN이 브리프를 승인했습니다.')
+      node('brief', 'done', DELIVERABLE_KINDS[brief.kind])
       persist()
     }
-    node('clone', 'done', clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
-    }
 
-    /* ---- 10. DELIVER: 윤문 후 납품 ---- */
-    packet('clone', 'deliver', 'final')
+    /* ---- 10. PRODUCE: 결과물 유형별 제작 → 취향 심사 ---- */
+    const prof = PRODUCTION[brief.kind]
+    const production: NonNullable<RunRecord['production']> = {}
+    run.production = production
+    let deliverable: Deliverable
+    packet('clone', 'produce', 'final')
+    if (prof.mode === 'diverge') {
+      const angles = brief.angles.slice(0, 6)
+      const total = CANDIDATES[args.depth]
+      const per = Math.max(3, Math.ceil(total / angles.length))
+      node('produce', 'running', `후보 발산 · 각도 ${angles.length}개 × ${per}`)
+      const all: NonNullable<typeof production.candidates> = []
+      await pool(angles, settings.maxParallel, async (angle) => {
+        try {
+          const r = await engine.structured({
+            model: models.worker,
+            system: system(P.ROLE.diverge),
+            user: P.divergeUser(brief, angle, per),
+            effort: 'high',
+            signal,
+            maxTokens: 16000,
+            schema: CandidatesSchema
+          })
+          all.push(...r.candidates.map((c) => ({ ...c, angle: angle.name })))
+          log('produce', `각도 "${angle.name}": 후보 ${r.candidates.length}개`)
+        } catch (err) {
+          if (signal.aborted) throw err
+          log('produce', `각도 "${angle.name}" 실패: ${(err as Error).message}`, 'warn')
+        }
+      })
+      if (!all.length) throw new Error('후보를 하나도 만들지 못했습니다')
+      production.candidates = all
+      node('produce', 'done', `후보 ${all.length}개`)
+      persist()
+
+      packet('produce', 'taste', 'final')
+      node('taste', 'running', `후보 ${all.length}개 심사`)
+      const taste = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.taste),
+        user: P.tasteUser(brief, all),
+        effort: effort.audit,
+        signal,
+        maxTokens: 32000,
+        schema: TasteSchema,
+        validate: (t) => (!t.picks.length ? '살릴 후보를 골라라.' : t.picks.some((x) => !all[x.id]) ? 'picks의 id가 후보 번호(#)와 맞지 않는다.' : null)
+      })
+      production.taste = taste
+      log('taste', `${all.length}개 중 ${taste.picks.length}개를 살림. 버린 이유: ${taste.killedPatterns.slice(0, 3).join(' / ')}`)
+      persist()
+      node('taste', 'running', '살린 후보 다듬는 중')
+      const picks = taste.picks
+        .map((x) => `#${x.id} [${all[x.id].angle}] ${all[x.id].head}${all[x.id].body ? ` / ${all[x.id].body}` : ''} — 고른 이유: ${x.why}`)
+        .join('\n')
+      deliverable = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.produce(true)),
+        user: P.produceUser(brief, result, { picks, sharpen: taste.sharpen, factbook: run.factbook }),
+        effort: effort.mpm,
+        signal,
+        maxTokens: 32000,
+        schema: DeliverableSchema
+      })
+      node('taste', 'done', `${all.length}개 중 ${taste.picks.length}개 채택`)
+    } else {
+      node('produce', 'running', `${DELIVERABLE_KINDS[brief.kind]} 작성 중`)
+      deliverable = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.produce(prof.copy)),
+        user: P.produceUser(brief, result, { factbook: run.factbook }),
+        effort: effort.mpm,
+        signal,
+        maxTokens: 64000,
+        schema: DeliverableSchema
+      })
+      node('produce', 'done', `${deliverable.sections.length}개 절`)
+      persist()
+
+      packet('produce', 'taste', 'final')
+      node('taste', 'running', '결과물 심사 중')
+      const docTaste = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.docTaste),
+        user: P.docTasteUser(brief, deliverable),
+        effort: effort.audit,
+        signal,
+        schema: DocTasteSchema
+      })
+      production.docTaste = docTaste
+      log('taste', `결과물 심사: 제목 흐름 ${docTaste.flowReads ? '통과' : '끊김'} · 도약 ${docTaste.leapScore}/5 · 고칠 절 ${docTaste.issues.length}개`)
+      if (docTaste.verdict === 'fix' && docTaste.issues.length) {
+        // 지적받은 절만 고친다 (전체를 다시 쓰면 평균으로 돌아간다)
+        node('taste', 'running', `${docTaste.issues.length}개 절 고치는 중`)
+        const fix = await engine.structured({
+          model: models.mpm,
+          system: system(P.ROLE.sectionFix(prof.copy)),
+          user: P.sectionFixUser(brief, deliverable, docTaste.issues),
+          effort: effort.mpm,
+          signal,
+          maxTokens: 32000,
+          schema: SectionFixSchema
+        })
+        const sections = [...deliverable.sections]
+        for (const f of fix.sections) {
+          const i = sections.findIndex((x) => x.heading.trim() === f.originalHeading.trim())
+          if (i >= 0) sections[i] = { heading: f.heading, body: f.body }
+        }
+        deliverable = { ...deliverable, sections }
+        production.fixed = fix.sections.map((f) => f.heading)
+      }
+      node('taste', 'done', docTaste.verdict === 'fix' ? `${production.fixed?.length ?? 0}개 절 수정` : '통과')
+    }
+    run.deliverable = deliverable
+    persist()
+
+    /* ---- 11. DELIVER: 윤문 후 납품 ---- */
+    packet('taste', 'deliver', 'final')
     node('deliver', 'running', '윤문 — MIN의 문장으로')
-    const before = lintVoice(collectStrings(result))
-    if (before.perThousand < 0.4) {
+    const before = lintVoice(collectStrings(deliverable))
+    if (before.perThousand < 0.3) {
       log('deliver', `윤문: AI투 표현 ${before.total}개 — 고칠 만큼 많지 않아 건너뜀`)
       verification.polish = { before: before.total, after: before.total, top: before.hits.slice(0, 8) }
     } else {
@@ -616,26 +794,26 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
         const polished = await engine.structured({
           model: models.worker,
           system: system(P.ROLE.polish),
-          user: P.polishUser(result, before.hits),
+          user: P.polishUser(deliverable, before.hits),
           effort: 'medium',
           signal,
-          maxTokens: 64000,
-          schema: SynthesisSchema,
-          validate: (v) => validateSynthesis(v) ?? (v.alternatives.length !== result.alternatives.length ? `대안 수를 바꾸지 마라 (원래 ${result.alternatives.length}개)` : null)
+          maxTokens: 32000,
+          schema: DeliverableSchema,
+          validate: (v) => (v.sections.length !== deliverable.sections.length ? `절의 수를 바꾸지 마라 (원래 ${deliverable.sections.length}개)` : null)
         })
         const after = lintVoice(collectStrings(polished))
         verification.polish = { before: before.total, after: after.total, top: before.hits.slice(0, 8) }
         if (after.total <= before.total) {
-          result = polished
-          commit('윤문')
+          run.deliverable = polished
+          persist()
         }
-        log('deliver', `윤문: AI투 표현 ${before.total}개 → ${after.total}개${before.hits.length ? ` (많았던 말: ${before.hits.slice(0, 5).map((h) => h.phrase).join(', ')})` : ''}`)
+        log('deliver', `윤문: AI투 표현 ${before.total}개 → ${after.total}개${before.hits.length ? ` (많았던 것: ${before.hits.slice(0, 5).map((h) => h.phrase).join(', ')})` : ''}`)
       } catch (err) {
         if (signal.aborted) throw err
         log('deliver', `윤문 실패 — 원문으로 납품: ${(err as Error).message}`, 'warn')
       }
     }
-    node('deliver', 'done', `최종 · ${verification.versions.length}번 다듬음`)
+    node('deliver', 'done', run.deliverable?.title ?? '최종')
     run.status = 'done'
     persist()
     emit({ type: 'run', runId, status: 'done' })
