@@ -132,9 +132,27 @@ export default function SettingsView({ onToast, onKeyChange, update }: { onToast
           </select>
         </label>
         <label className="field">
+          <span>근본 이슈 확정</span>
+          <input type="checkbox" checked={s.rootIssueAsk} onChange={(e) => save({ ...s, rootIssueAsk: e.target.checked })} />
+          <span className="muted small">맥락 설계 직후 근본 이슈 후보를 보여 주고 MIN이 고르거나 고쳐 씁니다. 끄면 MPM 추천으로 진행</span>
+        </label>
+        <label className="field">
+          <span>콘셉트 회차 상한</span>
+          <select value={s.maxRounds} onChange={(e) => save({ ...s, maxRounds: Number(e.target.value) })}>
+            {[1, 2, 3, 4, 5].map((n) => <option key={n} value={n}>{n}회차</option>)}
+          </select>
+        </label>
+        <label className="field">
+          <span>리뷰 카드</span>
+          <select value={s.roundReview} onChange={(e) => save({ ...s, roundReview: e.target.value as Settings['roundReview'] })}>
+            <option value="wait">회차마다 MIN의 답을 기다림</option>
+            <option value="auto">편집장의 방향으로 자동 진행 (자리를 비울 때)</option>
+          </select>
+        </label>
+        <label className="field">
           <span>브리프 승인</span>
           <input type="checkbox" checked={s.briefApproval} onChange={(e) => save({ ...s, briefApproval: e.target.checked })} />
-          <span className="muted small">결과물을 만들기 전에 1장 브리프를 보여 주고 승인을 받습니다. 끄면 클론 심사만 거치고 바로 제작합니다</span>
+          <span className="muted small">콘셉트 회차를 돌지 않는 일에서, 결과물을 만들기 전에 1장 브리프를 보여 주고 승인을 받습니다</span>
         </label>
         <label className="field">
           <span>Factbook 웹 조사</span>

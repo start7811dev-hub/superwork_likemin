@@ -24,6 +24,11 @@ import {
   DocTasteSchema,
   SectionFixSchema,
   TasteSchema,
+  RootIssueSchema,
+  RoundSchema,
+  EditorSchema,
+  ReviewCardSchema,
+  MOVES,
   type Brief,
   type Deliverable,
   type DeliverableKind,
@@ -50,7 +55,9 @@ import {
   type NodeStatus,
   type PacketKind,
   type PipelineEvent,
+  ROUND_ANSWERS,
   type RoleDef,
+  type RoundAnswerKind,
   type RunRecord,
   type Settings,
   type TaskRun
@@ -76,6 +83,8 @@ const PRODUCTION: Record<DeliverableKind, { mode: 'diverge' | 'document'; copy: 
   analysis: { mode: 'document', copy: false },
   spec: { mode: 'document', copy: false }
 }
+/** 프로세스 설계에 회차 판단이 없을 때(이전 기록) 기본으로 회차를 도는 결과물 */
+const ROUNDS_DEFAULT = new Set<DeliverableKind>(['copy', 'content', 'proposal', 'spec'])
 /** 발산형 결과물의 후보 수 */
 const CANDIDATES: Record<Depth, number> = { quick: 18, standard: 30, deep: 42 }
 
@@ -179,10 +188,11 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
   const memory = memoryContext(brain)
   const lang = settings.language === 'en' ? 'Respond in English.' : '모든 내용은 한국어로 작성한다.'
   let materialBlock: { type: 'text'; text: string; cache_control: { type: 'ephemeral' } } | null = null
+  let rootText = ''
   const system = (role: string) => [
     brainBlock,
     ...(materialBlock ? [materialBlock] : []),
-    { type: 'text' as const, text: [memory, role, lang].filter(Boolean).join('\n\n') }
+    { type: 'text' as const, text: [memory, rootText, role, lang].filter(Boolean).join('\n\n') }
   ]
   const mcp: McpServer[] = settings.mcpServers
     .filter((m) => m.enabled && m.url)
@@ -270,6 +280,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
             simulate: { run: true, reason: '설정: 항상 전체 공정' },
             methods: ALL_METHODS,
             refine: { run: true, reason: '설정: 항상 전체 공정' },
+            rounds: { run: true, reason: '설정: 항상 전체 공정' },
             clone: { run: true, reason: '설정: 항상 전체 공정' }
           }
         : canvas.process
@@ -281,8 +292,32 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     }
     log(
       'intake',
-      `공정 설계(${proc.scale}): 담당 ${proc.maxTasks}명 · Factbook ${proc.factbook.mode} · 방법론 ${proc.methods.length ? proc.methods.join('/') : '없음'} · 시뮬레이션 ${proc.simulate.run ? 'O' : 'X'} · 고도화 ${proc.refine.run ? 'O' : 'X'} · 클론 ${proc.clone.run ? 'O' : 'X'} — ${proc.rationale}`
+      `공정 설계(${proc.scale}): 담당 ${proc.maxTasks}명 · Factbook ${proc.factbook.mode} · 방법론 ${proc.methods.length ? proc.methods.join('/') : '없음'} · 시뮬레이션 ${proc.simulate.run ? 'O' : 'X'} · 고도화 ${proc.refine.run ? 'O' : 'X'} · 콘셉트 회차 ${proc.rounds?.run ? 'O' : 'X'} — ${proc.rationale}`
     )
+    /* ---- 1.7 근본 이슈: 모든 중간 결과를 대입할 자리 (doctrine §0.12) ---- */
+    node('intake', 'running', '근본 이슈 세우는 중')
+    const root = await engine.structured({
+      model: models.mpm,
+      system: system(P.ROLE.root),
+      user: P.rootUser(args.brief, canvas, run.answers),
+      effort: effort.mpm,
+      signal,
+      schema: RootIssueSchema,
+      validate: (r) => (r.candidates.length < 2 ? '근본 이슈 후보를 2개 이상 써라.' : null)
+    })
+    const pick = root.candidates[Math.min(Math.max(0, root.recommended), root.candidates.length - 1)]
+    run.rootIssue = { issue: pick.issue, test: pick.test, task: root.task, purpose: root.purpose, by: 'mpm', candidates: root.candidates }
+    if (settings.rootIssueAsk) {
+      node('intake', 'waiting', '근본 이슈 확정 대기')
+      log('intake', 'MIN에게 근본 이슈 후보를 보여 주고 확정을 기다립니다.', 'warn')
+      emit({ type: 'root', runId, root })
+      const ans = await waitForAnswer(runId, signal)
+      // 답: [이슈, 판정 질문] — 비우면 MPM 추천
+      if (ans?.[0]?.trim()) run.rootIssue = { ...run.rootIssue, issue: ans[0].trim(), test: ans[1]?.trim() || run.rootIssue.test, by: 'min' }
+    }
+    rootText = P.rootBlock(run.rootIssue)
+    log('intake', `근본 이슈(${run.rootIssue.by === 'min' ? 'MIN 확정' : 'MPM 추천'}): ${run.rootIssue.issue}`)
+    log('intake', `판정 질문: ${run.rootIssue.test}`)
     node('intake', 'done', canvas.title)
     persist()
 
@@ -599,14 +634,125 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     node('refine', 'done', refine.verdict === 'improve' ? `고도화 ${refine.issues.length}건` : '유지')
     }
 
-    /* ---- 9. BRIEF: 전략을 결과물로 옮기는 1장 (doctrine §0.11) ---- */
-    packet('refine', 'brief', 'final')
+    /* ---- 9. 콘셉트 회차: 걸림 → 수 → 대입 → 고르기 → 리뷰 카드 (doctrine §0.12) ---- */
+    const roundsOn = proc.rounds?.run ?? ROUNDS_DEFAULT.has(canvas.deliverable.kind)
+    const history: NonNullable<RunRecord['concept']>['rounds'] = []
+    if (!roundsOn) {
+      skip('rounds', proc.rounds?.reason ?? '정답형 결과물')
+    } else {
+      run.concept = { rounds: history }
+      packet('refine', 'rounds', 'final')
+      const maxRounds = Math.max(1, Math.min(5, settings.maxRounds))
+      let steer: string | undefined
+      let lastMove: string | undefined
+      let unchanged = 0
+      for (let n = 1; n <= maxRounds; n++) {
+        try {
+          node('rounds', 'running', `${n}회차 · 걸림 찾는 중`)
+          const round = await engine.structured({
+            model: models.mpm,
+            system: system(P.ROLE.painter),
+            user: P.painterUser(result, { n, history, insight, factbook: run.factbook, banMove: lastMove ? MOVES[lastMove as keyof typeof MOVES] : undefined, steer }),
+            effort: effort.mpm,
+            signal,
+            maxTokens: 24000,
+            schema: RoundSchema,
+            validate: (r) => {
+              if (!r.moves.length) return '걸림에 맞는 수를 1~2개 두어라.'
+              if (lastMove && r.moves[0].move === lastMove) return `지난 회차의 주된 수(${MOVES[lastMove as keyof typeof MOVES]})를 연속으로 두지 마라. 다른 수를 주된 수로 써라.`
+              if (new Set(r.questions.map((q) => q.type)).size < Math.min(3, r.questions.length) || r.questions.length < 2) return '찌르는 질문 후보를 서로 다른 방식으로 3개 써라.'
+              return null
+            }
+          })
+          lastMove = round.moves[0].move
+          log('rounds', `${n}회차 걸림: ${round.snag}`)
+          log('rounds', `수: ${round.moves.map((m) => `${MOVES[m.move]} — ${m.result}${m.keep ? '' : ' (대입 실패 · 버림)'}`).join(' / ')}`)
+
+          // 편집장: MPM 클론
+          packet('rounds', 'clone', 'final')
+          node('rounds', 'running', `${n}회차 · 편집장 검토`)
+          node('clone', 'running', `${n}회차 편집`)
+          const editor = await engine.structured({
+            model: models.mpm,
+            system: system(P.ROLE.editor),
+            user: P.editorUser(round, history),
+            effort: effort.audit,
+            signal,
+            schema: EditorSchema,
+            validate: (e) => (e.pickedQuestion < 0 || e.pickedQuestion >= round.questions.length ? 'pickedQuestion이 질문 번호와 맞지 않는다.' : null)
+          })
+          for (const i of editor.vagueMoves) if (round.moves[i]) round.moves[i].keep = false
+          let card = editor.card
+          try {
+            card = await engine.structured({ model: models.light, system: system(P.ROLE.cardPolish), user: P.cardPolishUser(card), effort: 'low', signal, schema: ReviewCardSchema })
+          } catch (err) {
+            if (signal.aborted) throw err
+          }
+          const entry: (typeof history)[number] = { n, round, editor, card }
+          history.push(entry)
+          run.concept.final = { idea: round.best.idea, why: round.best.why }
+          node('clone', 'done', `${n}회차 편집`)
+          persist()
+
+          // 멈춤 판단: 최선이 그대로인 회차가 연속되면 여지가 줄었다
+          const prev = history[history.length - 2]
+          unchanged = prev && prev.round.best.idea.trim() === round.best.idea.trim() ? unchanged + 1 : 0
+          const last = n === maxRounds
+          const editorStop = editor.stop && n >= 2
+
+          // 리뷰 카드: MIN이 한마디로 방향을 튼다
+          let kind: RoundAnswerKind = 'auto'
+          let text: string | undefined
+          if (settings.roundReview === 'wait') {
+            node('rounds', 'waiting', `${n}회차 리뷰 카드`)
+            emit({ type: 'card', runId, round: n, maxRounds, card, stopHint: editorStop || unchanged >= 1 ? editor.stopWhy || '두 회차 연속 최선이 그대로입니다' : undefined, last })
+            const ans = await waitForAnswer(runId, signal)
+            kind = (ans?.[0] as RoundAnswerKind) || 'auto'
+            text = ans?.[1]?.trim() || undefined
+          }
+          entry.answer = { kind, text }
+          log('rounds', `${n}회차 MIN의 답: ${ROUND_ANSWERS[kind as Exclude<RoundAnswerKind, 'auto'>] ?? '자동 진행'}${text ? ` — ${text}` : ''}`, kind === 'auto' ? 'info' : 'warn')
+          persist()
+
+          if (kind === 'stop') {
+            run.concept.stoppedBy = `MIN이 ${n}회차 안으로 가자고 했다`
+            break
+          }
+          if (last || (kind === 'auto' && (editorStop || unchanged >= 1))) {
+            run.concept.stoppedBy = last ? `회차 상한(${maxRounds})` : editorStop ? `편집장: ${editor.stopWhy}` : '두 회차 연속 최선이 그대로'
+            break
+          }
+          const q = round.questions[editor.pickedQuestion]
+          steer =
+            kind === 'go'
+              ? `MIN이 이 질문으로 가자고 했다: "${q.question}" → ${MOVES[q.leadsTo]}로 이어 간다.${text ? ` MIN의 말: ${text}` : ''}`
+              : kind === 'half'
+                ? `MIN이 이 질문을 반만 받아들였다: "${q.question}". 얻는 것(${q.gain})은 취하고 잃는 것(${q.loss})은 피하는 쪽으로.${text ? ` MIN의 말: ${text}` : ''}`
+                : kind === 'no'
+                  ? `MIN이 이 질문을 거절하고 다른 방향을 줬다: ${text ?? '(방향 미기재 — 질문이 공격한 전제는 유지한다)'}`
+                  : `MIN의 답이 없어 편집장의 방향으로 자동 진행했다(이 사실을 지금 안의 from에 적는다): ${MOVES[editor.next.move]} — ${editor.next.direction}`
+      
+        } catch (err) {
+          if (signal.aborted) throw err
+          // 회차 하나가 실패해도 공정은 멈추지 않는다: 지금까지의 최선으로 브리프를 쓴다
+          log('rounds', `${n}회차 실패 — ${history.length ? '지금까지의 최선으로' : '전략의 추천 방향으로'} 진행: ${(err as Error).message}`, 'warn')
+          run.concept.stoppedBy = `${n}회차 오류`
+          break
+        }
+      }
+      log('rounds', `콘셉트 확정: ${run.concept.final?.idea} (${run.concept.stoppedBy})`)
+      node('rounds', 'done', `${history.length}회차 · ${run.concept.stoppedBy?.slice(0, 18) ?? ''}`)
+      persist()
+    }
+
+    /* ---- 10. BRIEF: 회차의 최선을 결과물로 옮기는 1장 (doctrine §0.11) ---- */
+    packet(roundsOn ? 'rounds' : 'refine', 'brief', 'final')
     node('brief', 'running', '1장 브리프 작성 중')
     const writeBrief = (previous?: Brief, directive?: string) =>
       engine.structured({
         model: models.mpm,
         system: system(P.ROLE.brief),
-        user: P.briefUser(canvas, result, { insight, factbook: run.factbook, simulation, qa: run.answers, previous, directive }),
+        user: P.briefUser(canvas, result, { insight, factbook: run.factbook, simulation, qa: run.answers, previous, directive, concept: run.concept ? { history: run.concept.rounds, final: run.concept.final } : undefined }),
         effort: effort.mpm === 'low' ? 'medium' : 'max',
         signal,
         maxTokens: 32000,
@@ -623,48 +769,49 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     log('brief', `제안 한 줄: ${brief.proposition}`)
     log('brief', `도약: ${brief.leap}`)
     persist()
-
-    // MPM 클론: 결과물이 아니라 브리프를 심사한다
     node('brief', 'done', DELIVERABLE_KINDS[brief.kind])
-    packet('brief', 'clone', 'final')
-    node('clone', 'running', '브리프 심사 — 숲을 보는 중')
-    const briefReview = await engine.structured({
-      model: models.mpm,
-      system: system(P.ROLE.briefReview),
-      user: P.briefReviewUser(canvas, brief),
-      effort: effort.mpm,
-      signal,
-      schema: BriefReviewSchema
-    })
-    run.briefReview = briefReview
-    log('clone', `MPM 클론: ${briefReview.insight} (도약 ${briefReview.leapScore}/5${briefReview.generic ? ' · 뻔함' : ''}${briefReview.scopeMatch ? '' : ' · 요청과 다른 결과물'})`)
-    if (briefReview.verdict === 'rewrite' && briefReview.directive.trim()) {
-      node('clone', 'running', '직권 지시!')
-      packet('clone', 'brief', 'directive')
-      log('clone', `직권 지시: ${briefReview.directive}`, 'warn')
-      brief = await writeBrief(brief, `MPM 클론의 직권 지시 (최우선): ${briefReview.directive}`)
-      run.workBrief = brief
-      log('brief', `다시 쓴 제안 한 줄: ${brief.proposition}`)
-    }
-    node('clone', 'done', briefReview.verdict === 'rewrite' ? '직권 지시 반영' : '브리프 통과')
-    persist()
 
-    // MIN의 브리프 승인
-    if (settings.briefApproval) {
-      node('brief', 'waiting', 'MIN의 브리프 승인 대기')
-      log('brief', 'MIN에게 브리프를 보여 주고 승인을 기다립니다.', 'warn')
-      emit({ type: 'brief', runId, brief })
-      const ans = await waitForAnswer(runId, signal)
-      const note = ans?.[0]?.trim()
-      if (note) {
-        run.briefNote = note
-        node('brief', 'running', 'MIN의 지시로 브리프 수정 중')
-        brief = await writeBrief(brief, `MIN의 지시 (최우선): ${note}`)
+    // 회차를 돌지 않았으면: 클론이 브리프를 심사하고 MIN이 승인한다 (회차를 돌았으면 리뷰 카드가 이 역할을 했다)
+    if (!roundsOn) {
+      packet('brief', 'clone', 'final')
+      node('clone', 'running', '브리프 심사 — 숲을 보는 중')
+      const briefReview = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.briefReview),
+        user: P.briefReviewUser(canvas, brief),
+        effort: effort.mpm,
+        signal,
+        schema: BriefReviewSchema
+      })
+      run.briefReview = briefReview
+      log('clone', `MPM 클론: ${briefReview.insight} (도약 ${briefReview.leapScore}/5${briefReview.generic ? ' · 뻔함' : ''}${briefReview.scopeMatch ? '' : ' · 요청과 다른 결과물'})`)
+      if (briefReview.verdict === 'rewrite' && briefReview.directive.trim()) {
+        node('clone', 'running', '직권 지시!')
+        packet('clone', 'brief', 'directive')
+        log('clone', `직권 지시: ${briefReview.directive}`, 'warn')
+        brief = await writeBrief(brief, `MPM 클론의 직권 지시 (최우선): ${briefReview.directive}`)
         run.workBrief = brief
-        log('brief', `MIN의 지시 반영: ${brief.proposition}`)
-      } else log('brief', 'MIN이 브리프를 승인했습니다.')
-      node('brief', 'done', DELIVERABLE_KINDS[brief.kind])
+        log('brief', `다시 쓴 제안 한 줄: ${brief.proposition}`)
+      }
+      node('clone', 'done', briefReview.verdict === 'rewrite' ? '직권 지시 반영' : '브리프 통과')
       persist()
+
+      if (settings.briefApproval) {
+        node('brief', 'waiting', 'MIN의 브리프 승인 대기')
+        log('brief', 'MIN에게 브리프를 보여 주고 승인을 기다립니다.', 'warn')
+        emit({ type: 'brief', runId, brief })
+        const ans = await waitForAnswer(runId, signal)
+        const note = ans?.[0]?.trim()
+        if (note) {
+          run.briefNote = note
+          node('brief', 'running', 'MIN의 지시로 브리프 수정 중')
+          brief = await writeBrief(brief, `MIN의 지시 (최우선): ${note}`)
+          run.workBrief = brief
+          log('brief', `MIN의 지시 반영: ${brief.proposition}`)
+        } else log('brief', 'MIN이 브리프를 승인했습니다.')
+        node('brief', 'done', DELIVERABLE_KINDS[brief.kind])
+        persist()
+      }
     }
 
     /* ---- 10. PRODUCE: 결과물 유형별 제작 → 취향 심사 ---- */
@@ -672,7 +819,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     const production: NonNullable<RunRecord['production']> = {}
     run.production = production
     let deliverable: Deliverable
-    packet('clone', 'produce', 'final')
+    packet('brief', 'produce', 'final')
     if (prof.mode === 'diverge') {
       const angles = brief.angles.slice(0, 6)
       const total = CANDIDATES[args.depth]
@@ -718,9 +865,10 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       log('taste', `${all.length}개 중 ${taste.picks.length}개를 살림. 버린 이유: ${taste.killedPatterns.slice(0, 3).join(' / ')}`)
       persist()
       node('taste', 'running', '살린 후보 다듬는 중')
-      const picks = taste.picks
-        .map((x) => `#${x.id} [${all[x.id].angle}] ${all[x.id].head}${all[x.id].body ? ` / ${all[x.id].body}` : ''} — 고른 이유: ${x.why}`)
-        .join('\n')
+      const picks = [
+        ...taste.picks.map((x) => `#${x.id} [${all[x.id].angle}] ${all[x.id].head}${all[x.id].body ? ` / ${all[x.id].body}` : ''} — 고른 이유: ${x.why}`),
+        ...taste.rescue.filter((x) => all[x.id]).map((x) => `#${x.id} [살릴 조각] ${all[x.id].head} — 살리는 법: ${x.how}`)
+      ].join('\n')
       deliverable = await engine.structured({
         model: models.mpm,
         system: system(P.ROLE.produce(true)),

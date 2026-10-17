@@ -3,6 +3,8 @@ import { estimateCost, type AttachmentInfo, type Depth, type PipelineEvent, type
 import { api } from './api'
 import { EMPTY, fromRecord, reduce, type LiveState } from './live'
 import Factory from './components/Factory'
+import RootGate from './components/RootGate'
+import CardGate from './components/CardGate'
 import BriefGate from './components/BriefGate'
 import QuestionGate from './components/QuestionGate'
 import CostBadge from './components/CostBadge'
@@ -165,7 +167,7 @@ export default function App() {
           <div className="status">
             {running && <span className="live-dot" />}
             <span className="muted small">
-              {live.brief ? 'MPM이 브리프 승인을 기다리는 중' : live.questions ? 'MPM이 MIN의 답을 기다리는 중' : running ? 'MPM 공정 가동 중' : live.status === 'done' ? '완료' : live.status === 'error' ? '오류' : live.status === 'cancelled' ? '중단됨' : '대기'}
+              {live.root ? 'MPM이 근본 이슈 확정을 기다리는 중' : live.card ? `리뷰 카드 · ${live.card.round}회차` : live.brief ? 'MPM이 브리프 승인을 기다리는 중' : live.questions ? 'MPM이 MIN의 답을 기다리는 중' : running ? 'MPM 공정 가동 중' : live.status === 'done' ? '완료' : live.status === 'error' ? '오류' : live.status === 'cancelled' ? '중단됨' : '대기'}
               {live.runId && ` · $${estimateCost(live.usage).toFixed(3)}`}
             </span>
           </div>
@@ -176,6 +178,12 @@ export default function App() {
             <div className="stage">
               <Factory live={live} selected={selected} onSelect={setSelected} />
               {live.status === 'error' && <div className="error-banner">{live.error}</div>}
+              {live.root && live.runId && (
+                <RootGate key={live.root.task} root={live.root} onSubmit={(ans) => void api.runs.answer(live.runId!, ans)} />
+              )}
+              {live.card && live.runId && (
+                <CardGate key={`card-${live.card.round}`} {...live.card} onSubmit={(ans) => void api.runs.answer(live.runId!, ans)} />
+              )}
               {live.brief && live.runId && (
                 <BriefGate key={live.brief.proposition} brief={live.brief} onSubmit={(ans) => void api.runs.answer(live.runId!, ans)} />
               )}

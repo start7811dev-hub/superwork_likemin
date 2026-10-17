@@ -86,6 +86,9 @@ function mpmLine(live: LiveState): string {
   const s = (id: string) => live.nodes[id]?.status
   if (live.questions) return '잠깐! MIN한테 먼저 물어보자 🙋'
   if (live.brief) return 'MIN, 이 브리프로 가도 될까? 📝'
+  if (live.root) return '먼저, 진짜 바꿀 게 뭔지부터 정하자 🎯'
+  if (live.card) return '여기서 한마디만 해 줘 🗣️'
+  if (s('rounds') === 'running') return '이거… 결국 뻔해지는데? 🌀'
   if (live.status === 'done') return '좋아, 퇴근하고 수영 가자 🏊'
   if (live.status === 'error') return '음… 뭔가 꼬였네 🤔'
   if (live.status === 'cancelled') return '오늘은 여기까지!'
@@ -148,11 +151,12 @@ function layout(tasks: TaskSpec[]): StationDef[] {
     // 검증 루프 (2열, 오른쪽 → 왼쪽)
     { id: 'review', gx: 26.8, gy: VROW, kind: 'loupe', title: '재검증실', sub: '다시 한번 고민', color: '#fff1b8' },
     { id: 'refine', gx: 23.5, gy: VROW, kind: 'polish', title: '고도화 공방', sub: '최종 검증 A', color: '#d9f7c4' },
-    { id: 'brief', gx: 20.2, gy: VROW, kind: 'board', title: '1장 브리프', sub: '산을 언덕 말고 칼로', color: '#ffe0c7' },
-    { id: 'clone', gx: 16.9, gy: VROW, kind: 'tower', title: 'MPM 클론 전망대', sub: '브리프 심사', color: '#d6e6ff' },
-    { id: 'produce', gx: 13.6, gy: VROW, kind: 'printer', title: '제작 스튜디오', sub: '유형별 제작', color: '#c9f3ef' },
-    { id: 'taste', gx: 10.3, gy: VROW, kind: 'gate', title: '취향 심사', sub: '대부분 버린다', color: '#fff1b8' },
-    { id: 'deliver', gx: 7.0, gy: VROW, kind: 'dock', title: '최종 결과물', sub: 'OUTPUT', color: '#ffd8e8' }
+    { id: 'rounds', gx: 20.2, gy: VROW, kind: 'lab', title: '콘셉트 회차', sub: '걸림 · 수 · 대입', color: '#e7dcff' },
+    { id: 'clone', gx: 16.9, gy: VROW, kind: 'tower', title: 'MPM 클론 전망대', sub: '편집장', color: '#d6e6ff' },
+    { id: 'brief', gx: 13.6, gy: VROW, kind: 'board', title: '1장 브리프', sub: '산을 언덕 말고 칼로', color: '#ffe0c7' },
+    { id: 'produce', gx: 10.3, gy: VROW, kind: 'printer', title: '제작 스튜디오', sub: '유형별 제작', color: '#c9f3ef' },
+    { id: 'taste', gx: 7.0, gy: VROW, kind: 'gate', title: '취향 심사', sub: '새로움 × 쓸모', color: '#fff1b8' },
+    { id: 'deliver', gx: 3.7, gy: VROW, kind: 'dock', title: '최종 결과물', sub: 'OUTPUT', color: '#ffd8e8' }
   ]
 }
 
@@ -566,9 +570,10 @@ export default function Factory({ live, selected, onSelect }: { live: LiveState;
     link('insight', 'synthesize', LIME)
     link('synthesize', 'review', PINK)
     link('review', 'refine', PINK)
-    link('refine', 'brief', PINK)
-    link('brief', 'clone', PINK)
-    link('clone', 'produce', LIME)
+    link('refine', 'rounds', PINK)
+    link('rounds', 'clone', PINK)
+    link('clone', 'brief', PINK)
+    link('brief', 'produce', LIME)
     link('produce', 'taste', LIME)
     link('taste', 'deliver', LIME)
     return list
@@ -834,7 +839,7 @@ export default function Factory({ live, selected, onSelect }: { live: LiveState;
       </g>
 
       {/* MPM의 지시선 */}
-      {(['intake', 'dispatch', 'audit', 'synthesize', 'review', 'refine', 'brief', 'taste'] as const).map((id) => {
+      {(['intake', 'dispatch', 'audit', 'synthesize', 'review', 'refine', 'rounds', 'brief', 'taste'] as const).map((id) => {
         const s = byId.get(id)!
         const a = iso(lounge.gx, lounge.gy + 1.2, 20), b = iso(s.gx, s.gy, 30)
         const hot = status(id) === 'running' || status(id) === 'waiting'

@@ -86,6 +86,7 @@ export const ProcessPlanSchema = z.object({
   methods: z.array(MethodSchema).describe('SUPER INSIGHT에 쓸 방법론. 비우면 SUPER INSIGHT 생략'),
   methodsReason: z.string(),
   refine: stageToggle,
+  rounds: stageToggle.describe('콘셉트 회차(걸림 → 수 → 대입 → 고르기). 카피·기획안·콘텐츠·기획서처럼 생각의 도약이 결과를 가르면 켠다. 정답형 분석·실행 계획은 판단'),
   clone: stageToggle.describe('MPM 클론의 브리프 심사. 결과물의 방향을 정하는 단계라 거의 항상 켠다')
 })
 export type ProcessPlan = z.infer<typeof ProcessPlanSchema>
@@ -568,19 +569,20 @@ export const TasteSchema = z.object({
     .array(
       z.object({
         id: z.number(),
-        stop: z.number().describe('첫 줄에서 멈추게 하나 1~5'),
-        fresh: z.number().describe('남의 브리프에서도 나올 말이 아닌가 1~5'),
-        truth: z.number().describe('타깃의 실제 경험에 닿는가 1~5'),
-        fit: z.number().describe('제안·브랜드 약속과 맞는가 1~5'),
-        clarity: z.number().describe('한 번에 읽히는가 1~5'),
-        guardrail: z.boolean().describe('과장·허위·금지 사항이 없으면 true'),
+        novelty: z.number().describe('새로움 1~5 — 기본안(아무나 낼 답)에서 얼마나 멀리 갔나'),
+        use: z.number().describe('쓸모 1~5 — 받는 사람이 실제로 얻는 것이 있나'),
+        purposeOk: z.boolean().describe('목적에 어긋나지 않으면 true. false면 지도에 올리지 않는다'),
+        guardrail: z.boolean().describe('증거 날조·안전·법규 위반이 없으면 true'),
         note: z.string()
       })
     )
-    .describe('모든 후보 채점'),
-  picks: z.array(z.object({ id: z.number(), why: z.string() })).describe('살릴 후보 3~7개'),
+    .describe('모든 후보를 새로움 × 쓸모 지도에 올린다'),
+  picks: z.array(z.object({ id: z.number(), why: z.string() })).describe('둘 다 높은 곳에서, 목적 안에서 가장 멀리 간 것 3~7개'),
+  rescue: z
+    .array(z.object({ id: z.number(), how: z.string().describe('뻔한 답이면 해석으로 멀리 미는 법, 억지 조합이면 쓸모를 보완하는 법') }))
+    .describe('버리기 아까운 한쪽만 높은 후보와 살리는 법. 없으면 빈 배열'),
   killedPatterns: z.array(z.string()).describe('버린 후보들의 공통 이유'),
-  sharpen: z.string().describe('살린 후보를 더 날카롭게 만들 지시')
+  sharpen: z.string().describe('살린 후보를 더 멀리 밀 방향')
 })
 export type Taste = z.infer<typeof TasteSchema>
 
@@ -604,3 +606,82 @@ export type DocTaste = z.infer<typeof DocTasteSchema>
 export const SectionFixSchema = z.object({
   sections: z.array(z.object({ heading: z.string().describe('원래 제목 또는 고친 제목'), originalHeading: z.string().describe('고치기 전 제목'), body: z.string() }))
 })
+
+/* ---------- 근본 이슈와 콘셉트 회차 (doctrine §0.12) ---------- */
+export const RootIssueSchema = z.object({
+  candidates: z
+    .array(
+      z.object({
+        issue: z.string().describe('근본 이슈 — 누구의 무엇이 바뀌어야 하나. 산출물 이름(앱·영상·캠페인)이 들어가면 아직 과업이다'),
+        test: z.string().describe('판정 질문 — 어떤 안이든 넣어 볼 질문 하나. "이 안이 있으면 ~하게 되는가?"'),
+        why: z.string().describe('이 이슈를 고른 이유 한 문장')
+      })
+    )
+    .describe('서로 다른 근본 이슈 후보 2~3개'),
+  task: z.string().describe('과업 — 무엇을 만들어 달라고 했나'),
+  purpose: z.string().describe('목적 — 그것이 끝나면 무엇이 되어야 하나'),
+  recommended: z.number().describe('추천 후보 번호 (0부터)')
+})
+export type RootIssue = z.infer<typeof RootIssueSchema>
+
+export const MOVES = { depth: '깊이', breadth: '넓이', twist: '비틀기', combine: '조합' } as const
+export const MoveSchema = z.enum(['depth', 'breadth', 'twist', 'combine'])
+export const QUESTION_TYPES = { premise: '전제 빼기', extreme: '극단 밀기', opposite: '반대편 서기', onlyOne: '하나만 남기기', failFirst: '실패 먼저' } as const
+
+export const RoundSchema = z.object({
+  current: z.object({ idea: z.string().describe('지금 안 — 무엇을 하는 안인지 의미 먼저 한 문장'), from: z.string().describe('어느 회차·수에서 왔나') }),
+  snag: z.string().describe('걸림 — 이 안이 결국 뻔해지는 이유 한 문장. 보완점이 아니라 안의 전제를 건드린다'),
+  moves: z
+    .array(
+      z.object({
+        move: MoveSchema,
+        how: z.string().describe('비틀기면 주체·시간·방향·크기 중 무엇을 / 조합이면 A × B / 깊이면 왜의 사슬 / 넓이면 어느 분야'),
+        result: z.string().describe('수를 둔 결과 한 문장'),
+        who: z.string().describe('대입: 누구의'),
+        changes: z.string().describe('대입: 무엇이 달라지나 — 행동·시간·장소로. 쓸 수 없으면 빈 문자열'),
+        keep: z.boolean().describe('대입이 구체적이면 true, 달라지는 것을 쓸 수 없으면 false(버림)')
+      })
+    )
+    .describe('걸림에 맞는 수 1~2개'),
+  best: z.object({
+    idea: z.string().describe('이번 회차의 최선 — 목적 안에서 기본안에서 가장 멀리 간 것'),
+    why: z.string(),
+    novelty: z.number().describe('새로움 1~5'),
+    use: z.number().describe('쓸모 1~5'),
+    testAnswer: z.string().describe('판정 질문에 넣어 본 결과')
+  }),
+  questions: z
+    .array(
+      z.object({
+        type: z.enum(['premise', 'extreme', 'opposite', 'onlyOne', 'failFirst']),
+        question: z.string().describe('평이한 문장으로 쓴 찌르는 질문. 극적인 수사 금지'),
+        attacks: z.string().describe('무엇을 공격하나 — 어떤 전제·관습·기본안'),
+        leadsTo: MoveSchema,
+        gain: z.string().describe('예라고 하면 얻는 것'),
+        loss: z.string().describe('예라고 하면 잃는 것')
+      })
+    )
+    .describe('서로 다른 방식의 질문 후보 3개'),
+  fragments: z.array(z.string()).describe('버리지만 다음 회차 조합 재료로 남길 조각'),
+  room: z.enum(['more', 'less']).describe('더 나아질 여지'),
+  roomWhy: z.string()
+})
+export type Round = z.infer<typeof RoundSchema>
+
+export const ReviewCardSchema = z.object({
+  current: z.string().describe('지금 안 — 의미 먼저 한 문장'),
+  snag: z.string().describe('걸리는 것 — 이 안이 결국 뻔해지는 이유'),
+  question: z.string().describe('찌르는 질문 하나 + (방식 → 이어지는 수)'),
+  ifYes: z.string().describe('넣으면 — 질문에 예라고 하면 근본 이슈에서 무엇이 달라지고 무엇을 잃는지')
+})
+export type ReviewCard = z.infer<typeof ReviewCardSchema>
+
+export const EditorSchema = z.object({
+  vagueMoves: z.array(z.number()).describe('대입이 막연해서("인식 개선" 등) 버려야 할 수의 번호(0부터). 없으면 빈 배열'),
+  pickedQuestion: z.number().describe('고른 질문 번호 (0부터) — 근본 이슈에 묶여 있으면서 가장 날카로운 것'),
+  card: ReviewCardSchema.describe('중간 리뷰 카드. 네 줄 합쳐 400자 이내, 내부 용어·약어 금지'),
+  next: z.object({ move: MoveSchema, direction: z.string().describe('MIN이 답하지 않으면 이 방향으로 간다') }),
+  stop: z.boolean().describe('더 나아질 여지가 줄었으면 true (예: 두 회차 연속 최선이 그대로)'),
+  stopWhy: z.string()
+})
+export type Editor = z.infer<typeof EditorSchema>

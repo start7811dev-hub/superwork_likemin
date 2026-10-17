@@ -5,6 +5,10 @@ import type {
   Candidates,
   Deliverable,
   DocTaste,
+  Editor,
+  ReviewCard,
+  RootIssue,
+  Round,
   Taste,
   ChallengeQuestion,
   CloneReview,
@@ -41,8 +45,14 @@ export interface Settings {
   delegation: boolean
   /** 질문 게이트: critical=판단이 크게 바뀔 때만, always=질문이 있으면 항상, never=가정으로 진행 */
   askMode: 'critical' | 'always' | 'never'
-  /** 브리프를 MIN이 보고 승인한 뒤 제작 */
+  /** 브리프를 MIN이 보고 승인한 뒤 제작 (콘셉트 회차를 돌면 리뷰 카드가 이 역할을 대신한다) */
   briefApproval: boolean
+  /** 근본 이슈를 MIN이 확정 */
+  rootIssueAsk: boolean
+  /** 콘셉트 회차 상한 */
+  maxRounds: number
+  /** 회차마다 리뷰 카드에 MIN의 답을 기다릴지, 편집장의 방향으로 자동 진행할지 */
+  roundReview: 'wait' | 'auto'
   language: 'ko' | 'en'
   /**
    * 비용 예산. Claude API는 선불 잔액을 조회하는 API가 없으므로 잔여 = 예산 − 소진으로 계산한다.
@@ -65,6 +75,9 @@ export const DEFAULT_SETTINGS: Settings = {
   processMode: 'adaptive',
   askMode: 'critical',
   briefApproval: true,
+  rootIssueAsk: true,
+  maxRounds: 3,
+  roundReview: 'wait',
   language: 'ko',
   budget: { mode: 'monthly', amount: 0, since: '' },
   mcpServers: [],
@@ -119,6 +132,8 @@ export type PipelineEvent =
   | { type: 'usage'; runId: string; usage: UsageSummary }
   | { type: 'questions'; runId: string; reading: string; questions: ChallengeQuestion[] }
   | { type: 'brief'; runId: string; brief: Brief }
+  | { type: 'root'; runId: string; root: RootIssue }
+  | { type: 'card'; runId: string; round: number; maxRounds: number; card: ReviewCard; stopHint?: string; last: boolean }
   | { type: 'record'; runId: string; record: RunRecord }
 
 export interface TaskRun {
@@ -164,6 +179,14 @@ export interface RunRecord {
   /** SUPER INSIGHT: AARRR·TOWS·STP 2.0·CDJ 분석과 MIN'S 4-3-2 THINKING */
   insight?: Insight
   synthesis?: Synthesis
+  /** 근본 이슈: 모든 중간 결과를 대입할 자리 */
+  rootIssue?: { issue: string; test: string; task: string; purpose: string; by: 'min' | 'mpm'; candidates: RootIssue['candidates'] }
+  /** 콘셉트 회차: 걸림 → 수 → 대입 → 고르기 → 리뷰 카드 */
+  concept?: {
+    rounds: { n: number; round: Round; editor: Editor; card: ReviewCard; answer?: { kind: RoundAnswerKind; text?: string } }[]
+    final?: { idea: string; why: string }
+    stoppedBy?: string
+  }
   /** 전략을 결과물로 옮기는 1장 브리프와 클론의 심사 */
   workBrief?: Brief
   briefReview?: BriefReview
@@ -185,6 +208,15 @@ export interface RunRecord {
   usage: UsageSummary
   log: { at: string; nodeId: string; text: string; level: 'info' | 'warn' | 'error' }[]
   feedback?: RunFeedback
+}
+
+/** 리뷰 카드에 대한 MIN의 답 */
+export type RoundAnswerKind = 'go' | 'half' | 'no' | 'stop' | 'auto'
+export const ROUND_ANSWERS: Record<Exclude<RoundAnswerKind, 'auto'>, string> = {
+  go: '이 질문으로 가자',
+  half: '반만',
+  no: '아니다 (다른 방향)',
+  stop: '지금 안으로 가자'
 }
 
 export interface RunSummary {

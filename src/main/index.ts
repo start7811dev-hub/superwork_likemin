@@ -190,6 +190,8 @@ async function devCapture(dir: string): Promise<void> {
     emit: (ev) => {
       win?.webContents.send('runs:event', ev)
       if (ev.type === 'brief') onBrief()
+      if (ev.type === 'root') setTimeout(async () => { await shot('1b-root'); answerRun(id, null) }, 1500)
+      if (ev.type === 'card') setTimeout(async () => { await shot(`5-card-${ev.round}`); answerRun(id, [ev.round === 1 ? 'go' : 'stop', '']); if (ev.round >= 2) onBrief() }, 1500)
       if (ev.type === 'run' && ev.status !== 'started') onDone()
     }
   })
@@ -201,9 +203,6 @@ async function devCapture(dir: string): Promise<void> {
     await shot(name)
   }
   await briefShown
-  await wait(1200)
-  await shot('5-brief-gate')
-  answerRun(id, null)
   await wait(6000)
   await shot('6-produce')
   await finished

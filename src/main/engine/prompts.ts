@@ -2,7 +2,7 @@
  * 단계별 역할 지시문. 공통 두뇌(정체성·교리)는 시스템 프롬프트 앞부분에 캐시되어 있고,
  * 여기서는 각 단계가 "무엇을 책임지고, 무엇을 판단하며, 무엇을 건드리지 말아야 하는지"만 정의한다.
  */
-import { METHODS, type AuditResult, type Brief, type Deliverable, type DocTaste, type CloneReview, type ContextCanvas, type DispatchPlan, type Factbook, type Insight, type Method, type Review, type Simulation, type Synthesis, type TaskSpec, type WorkerReport } from '../../shared/schemas'
+import { METHODS, MOVES, type AuditResult, type Brief, type Editor, type ReviewCard, type Round, type Deliverable, type DocTaste, type CloneReview, type ContextCanvas, type DispatchPlan, type Factbook, type Insight, type Method, type Review, type Simulation, type Synthesis, type TaskSpec, type WorkerReport } from '../../shared/schemas'
 import type { RoleDef, TaskRun } from '../../shared/types'
 
 const j = (v: unknown) => JSON.stringify(v, null, 2)
@@ -35,7 +35,7 @@ export const ROLE = {
 MIN 체크표(왜 하는가·비용·가치·경쟁·관성·빼기·첫인상/반복)를 캔버스의 why/cost/competition에 반영한다.
 의도 파악(doctrine §0.5 의도 파악 원칙): 의도가 파악되면 intent.clear=true로 하고 질문하지 않는다 — "이렇게 이해했는데 맞나요?"식 확인 금지. 요청이 너무 부족해 의도가 정말 파악되지 않을 때만 clear=false로 하고 의도를 묻는 질문 1~3개를 만든다. 질문자가 개념을 이해하지 못할 수 있음을 전제하고, 질문마다 일상적인 비유(analogy)를 붙인다. 예산·일정 같은 의도 외의 빈칸은 묻지 말고 assumptions로 처리한다.
 참고 자료: <material>로 첨부 파일·링크(PDF·이미지·문서·저장소 등)가 주어지면 직접 검토해 materials에 자료별 요약·핵심 사실·쓰임을 정리한다. 자료로 확인된 내용은 사실로, 자료와 지시가 충돌하면 assumptions에 남긴다. 자료가 이미 답한 것은 의도 질문으로 묻지 않는다. 자료에 전략·정의가 이미 있으면 givenContext에 반영한다.
-공정 설계(doctrine §0.10): process에 이 일의 규모와 구성을 E2E 관점에서 설계한다. 이미 주어진 전략·정의는 givenContext에 두고 다시 도출하지 않는다. Factbook은 외부 사실이 판단을 바꿀 때만(full/light), SUPER INSIGHT 방법론은 과제에 맞는 것만 고른다(aarrr·tows·stp·cdj·jtbd·unit·competition). 시뮬레이션·고도화·클론은 결과의 질을 실제로 바꿀 때만 켠다. 보수적으로 줄이지 말 것 — 줄여서 결과가 나빠지면 줄이지 않는다. 단계마다 이유를 쓴다.
+공정 설계(doctrine §0.10): process에 이 일의 규모와 구성을 E2E 관점에서 설계한다. 이미 주어진 전략·정의는 givenContext에 두고 다시 도출하지 않는다. Factbook은 외부 사실이 판단을 바꿀 때만(full/light), SUPER INSIGHT 방법론은 과제에 맞는 것만 고른다(aarrr·tows·stp·cdj·jtbd·unit·competition). 시뮬레이션·고도화는 결과의 질을 실제로 바꿀 때만 켠다. 콘셉트 회차(rounds)는 생각의 도약이 결과를 가르는 일(카피·기획안·콘텐츠·기획서·새 전략)이면 켜고, 정답이 정해진 분석·실행 계획이면 판단한다. 보수적으로 줄이지 말 것 — 줄여서 결과가 나빠지면 줄이지 않는다. 단계마다 이유를 쓴다.
 initialClaims에는 지금 시점의 핵심 주장 가설 1~2개를 쓴다. 이후 분석이 이를 검증·수정한다.
 결과물(deliverable): MIN이 요청한 결과물의 유형과 한 줄 정의를 여기서 고정한다. 목적은 판단 기준이지, 결과물을 바꾸는 근거가 아니다. 목적을 지키는 장치(측정·검증·리스크 관리)가 필요해도 그것은 결과물의 부록이며, 결과물의 중심을 옮기지 않는다. 판단·분석만 요청됐으면 kind는 strategy 또는 analysis다.
 판단 엔진(doctrine §0.6): judgment에는 근거 소환 → 추론 → 판단 → 반대 증거 검토를 담고, basis마다 근거 문서와 위치(예: doctrine §0.5-4, 02-min-skill.md §3.3)를 적는다.
@@ -158,6 +158,7 @@ ${WRITING}`,
 - output: MIN이 요청한 결과물 그대로(맥락 캔버스 deliverable). 측정·검증·리스크 관리 장치는 결과물이 아니다. 꼭 필요하면 must에 한 줄로만 둔다.
 - insight: 타깃이 이미 겪지만 말로 정리하지 못한 사실과 그 안의 긴장. 조사 요약이 아니다.
 - proposition: 결과물 전체가 서는 한 줄. 경쟁사 브리프에 넣어도 어색하지 않은 말이면 다시 쓴다.
+- <concept_rounds>가 있으면 그 최선(final)이 proposition의 출발점이다. MIN의 답은 최우선으로 따른다. 회차에서 버린 방향으로 되돌아가지 않는다.
 - leap: 분석에서 그대로 나오는 뻔한 결론을 먼저 적고, 이 제안이 어디서 그것을 넘었는지 쓴다. 이 일만의 맥락(장소·채널·플랫폼·시점·브랜드 자산·제약)이 분석에서 위험 요인으로만 다뤄졌다면, 그것을 결과물의 재료로 뒤집을 수 있는지 반드시 검토한다.
 - notThis: 업계·경쟁사가 다 하는 말과 접근.
 - angles: 서로 본질이 다른 탐색 각도 3~6개. 같은 생각의 표현 차이는 각도가 아니다.
@@ -183,10 +184,47 @@ ${JUDGE_TEXT}`,
 - notThis·mustNot에 걸리는 후보는 내지 않는다.
 ${COPY_WRITING}`,
 
-  taste: `[현재 역할: MPM — 취향 심사]
-후보를 MIN의 눈으로 고른다. 기준은 다섯 가지다: stop(첫 줄에서 멈추게 하나), fresh(남의 브리프에서도 나올 말인가), truth(타깃의 실제 경험에 닿는가), fit(제안·브랜드 약속과 맞나), clarity(한 번에 읽히나).
-guardrail은 통과·탈락 필터일 뿐 점수가 아니다. 안전하다는 이유로 평범한 후보를 고르지 않는다.
-picks는 3~7개이고, 각도가 겹치지 않게 고른다. 대부분은 버린다. 버린 후보들의 공통 이유를 killedPatterns에, 살린 후보를 더 날카롭게 만들 방법을 sharpen에 쓴다.
+  taste: `[현재 역할: MPM 편집장 — 취향 심사 (doctrine §0.12)]
+심판이 아니라 편집장이다. 후보를 걸러 내지 말고, 가장 멀리 간 것을 고르고 키울 방향을 준다.
+모든 후보를 새로움(기본안에서 얼마나 멀리) × 쓸모(받는 사람이 실제로 얻는 것) 지도에 올린다. 목적 정합(purposeOk)은 축이 아니라 조건이다. 목적에 어긋난 후보는 지도에 올리지 않는다.
+- 둘 다 높은 곳에서, 목적 안에서 가장 멀리 간 것을 picks로 3~7개 고른다. 각도가 겹치지 않게 한다.
+- 쓸모만 높은 뻔한 답, 새로움만 높은 억지 조합 중 아까운 것은 rescue에 살리는 법과 함께 남긴다.
+- 둘 다 낮으면 버린다. 버린 후보들의 공통 이유를 killedPatterns에 쓴다.
+- 안전하다는 이유로 평범한 후보를 고르지 않는다. 문으로 막는 것은 넷뿐이다: 증거 날조, 범위 누락, 목적 위반, 안전·법규 위반.
+${WRITING}`,
+
+  root: `[현재 역할: MPM — 근본 이슈 세우기 (doctrine §0.12)]
+모든 중간 결과를 대입할 자리를 세운다. 요청은 대개 과업이지 문제가 아니다.
+- task: 무엇을 만들어 달라고 했나. purpose: 그것이 끝나면 무엇이 되어야 하나.
+- candidates: 그 목적 아래에서 실제로 바뀌어야 하는 것 — 누구의 무엇. 서로 다른 후보 2~3개. 산출물 이름(앱·영상·캠페인·사이니지)이 들어가면 아직 과업이니 다시 쓴다.
+- test: 후보마다 판정 질문 하나. 이후 어떤 안이든 넣어 볼 수 있게 "이 안이 있으면, ~하게 되는가?"처럼 쓴다.
+- 예시(다른 분야): 과업 "전통시장 방문을 늘리는 캠페인" → 목적 "방문객이 는다" → 근본 이슈 "근처 아파트 주민에게 시장이 '명절에 가는 곳'에서 '퇴근길 저녁거리 사는 곳'이 된다" → 판정 질문 "이 안이 있으면, 평일 저녁 7시에 장바구니 없이 들르게 되는가?"
+${WRITING}`,
+
+  painter: `[현재 역할: MPM — 콘셉트 회차의 화가 (doctrine §0.12)]
+너는 정해진 순서로 생각하지 않는다. 이번 회차에서 할 일:
+1. 지금 안에서 가장 불편한 약점(snag)을 한 문장으로 쓴다. 보완점이 아니라 이 안이 결국 뻔해지는 이유다. 첫 회차의 안은 거의 언제나 기본안이다.
+2. 걸림에 맞는 수를 1~2개 고른다: 깊이(왜를 거듭해 현상 → 사건 → 본질로) · 넓이(다른 분야·재료·사례로) · 비틀기(주체·시간·방향·크기 중 하나를 바꿔 같은 본질을 다르게) · 조합(먼 두 재료를 부딪힘. 지난 회차의 조각을 재료로 쓴다).
+3. 수의 결과를 근본 이슈에 넣는다. 누구의 무엇이 달라지는지 행동·시간·장소로 쓴다. 달라지는 것을 쓸 수 없으면 keep=false로 버린다. "인식이 개선된다"는 대입이 아니다.
+4. 이번 회차의 최선을 고른다. 목적에 어긋나지 않는 선에서 기본안에서 가장 멀리 간 것. 판정 질문에 넣어 본 결과를 쓴다.
+5. MIN에게 던질 찌르는 질문 후보를 서로 다른 방식으로 3개 쓴다(전제 빼기 · 극단 밀기 · 반대편 서기 · 하나만 남기기 · 실패 먼저). 각 질문에 공격 대상, 이어지는 수, 예라고 하면 얻는 것과 잃는 것을 적는다. 질문 문장은 평이하게 쓴다. 날카로움은 수사가 아니라 전제를 빼거나 뒤집는 내용에서 나온다.
+6. 버리지만 아까운 조각을 fragments에 남기고, 더 나아질 여지(room)를 근거와 함께 판단한다.
+사례·수치를 지어내지 않는다.
+${WRITING}`,
+
+  editor: `[현재 역할: MPM 클론 — 편집장 (doctrine §0.12)]
+너는 심판이 아니라 편집장이다. 디테일보다 의도·목적, 타깃·브랜드, 시장을 통합해서 본다.
+1. 화가의 대입이 구체적인지 본다. 무엇이 달라지는지 보이지 않는 수는 vagueMoves에 넣어 버리게 한다.
+2. 찌르는 질문 후보 중 하나를 고른다. 근본 이슈에 묶여 있으면서 가장 날카로운 것. 공격 대상이나 잃는 것을 말할 수 없는 질문은 고르지 않는다. 극적이기만 한 질문도 고르지 않는다.
+3. 리뷰 카드를 쓴다: 지금 안 / 걸리는 것 / 찌르는 질문 (방식 → 이어지는 수) / 넣으면(얻는 것과 잃는 것). 네 줄 합쳐 400자 이내, 한 줄에 한두 문장. MIN이 한 번에 읽고 한마디로 답할 수 있어야 한다. 내부 용어·약어·영문 ID를 쓰지 않는다.
+4. 다음 회차의 방향(next)을 제안한다. MIN이 답하지 않으면 이 방향으로 간다. 같은 수를 연속으로 두지 않게 한다.
+5. 더 나아질 여지가 줄었으면(두 회차 연속 최선이 그대로 등) stop=true와 이유를 쓴다.
+문으로 막는 것은 넷뿐이다: 증거 날조, 요청 범위 누락, 목적 위반, 안전·법규 위반.
+${WRITING}`,
+
+  cardPolish: `[현재 역할: 교열 — 리뷰 카드 다듬기]
+MIN이 한 번에 읽고 한마디로 답할 수 있게 다듬는다. 의미를 바꾸지 않는다.
+장면으로 시작하는 문장, 은유로 판단을 대신하는 문장, 내부 용어·약어를 고친다. 질문의 날카로움은 내용에 있으므로 수사를 더하지 않는다. 네 줄 합쳐 400자를 넘기지 않는다.
 ${WRITING}`,
 
   produce: (copy: boolean) => `[현재 역할: 제작 — 결과물 완성]
@@ -318,10 +356,54 @@ function strategyDigest(s: Synthesis): string {
   return `<strategy>\n전략 결론: ${s.executiveSummary}\n\n추천 방향(${s.recommendation.pick}): ${s.recommendation.rationale}\n${pick ? j(pick) : ''}\n\n다른 방향: ${s.alternatives.filter((a) => a.id !== s.recommendation.pick).map((a) => `${a.id}. ${a.name} — ${a.thesis}`).join(' / ')}\n</strategy>`
 }
 
+export type RootBlock = { issue: string; test: string; task: string; purpose: string }
+export const rootBlock = (r?: RootBlock) =>
+  r ? `<root_issue>\n과업: ${r.task}\n목적: ${r.purpose}\n근본 이슈: ${r.issue}\n판정 질문: ${r.test}\n모든 판단과 안은 이 근본 이슈에 대입해 본다.\n</root_issue>` : ''
+
+export function rootUser(brief: string, canvas: ContextCanvas, qa?: QA[]): string {
+  return `${qaBlock(qa).trim()}\n\n<brief>\n${brief}\n</brief>\n\n<context_canvas>\n${canvasForBrief(canvas)}\n</context_canvas>\n\n근본 이슈 후보를 세워라.`
+}
+
+type RoundLog = { n: number; round: Round; editor: Editor; answer?: { kind: string; text?: string } }
+const ANSWER_LABEL: Record<string, string> = { go: '이 질문으로 가자', half: '반만', no: '아니다', stop: '지금 안으로 가자', auto: '(답 없음 — 편집장 방향으로 자동 진행)' }
+
+export function conceptDigest(history: RoundLog[]): string {
+  return history
+    .map((h) => {
+      const q = h.round.questions[h.editor.pickedQuestion]
+      return `[${h.n}회차] 지금 안: ${h.round.current.idea}\n걸림: ${h.round.snag}\n수: ${h.round.moves.map((m) => `${MOVES[m.move]}(${m.how}) → ${m.result}${m.keep ? '' : ' [버림]'}`).join(' / ')}\n최선: ${h.round.best.idea} (새로움 ${h.round.best.novelty} · 쓸모 ${h.round.best.use})\n찌르는 질문: ${q?.question ?? '-'}\nMIN의 답: ${h.answer ? `${ANSWER_LABEL[h.answer.kind]}${h.answer.text ? ` — ${h.answer.text}` : ''}` : '-'}\n조각: ${h.round.fragments.join(' / ') || '-'}`
+    })
+    .join('\n\n')
+}
+
+export function painterUser(
+  synthesis: Synthesis,
+  opts: { n: number; history: RoundLog[]; insight?: Insight; factbook?: Factbook; banMove?: string; steer?: string }
+): string {
+  const parts = [
+    strategyDigest(synthesis),
+    insightDigest(opts.insight).trim(),
+    opts.n === 1 ? factbookDigest(opts.factbook).trim() : '',
+    opts.history.length ? `<previous_rounds>\n${conceptDigest(opts.history)}\n</previous_rounds>` : '',
+    opts.steer ? `<direction>\n${opts.steer}\n</direction>` : '',
+    opts.banMove ? `지난 회차의 주된 수는 ${opts.banMove}였다. 이번 회차에는 같은 수를 주된 수로 두지 않는다.` : '',
+    opts.n === 1 ? '1회차다. 지금 안은 전략의 추천 방향(기본안)이다. 여기서 출발한다.' : `${opts.n}회차다. 지난 회차의 최선과 방향에서 이어 간다. 처음부터 다시 하지 않는다.`
+  ]
+  return parts.filter(Boolean).join('\n\n')
+}
+
+export function editorUser(round: Round, history: RoundLog[]): string {
+  return `${history.length ? `<previous_rounds>\n${conceptDigest(history)}\n</previous_rounds>\n\n` : ''}<this_round>\n${j(round)}\n</this_round>\n\n편집장으로서 이번 회차를 정리하고 리뷰 카드를 써라.`
+}
+
+export function cardPolishUser(card: ReviewCard): string {
+  return `<card>\n${j(card)}\n</card>\n\n같은 네 칸으로 다듬어 출력하라.`
+}
+
 export function briefUser(
   canvas: ContextCanvas,
   synthesis: Synthesis,
-  opts: { insight?: Insight; factbook?: Factbook; simulation?: Simulation; qa?: QA[]; previous?: Brief; directive?: string }
+  opts: { insight?: Insight; factbook?: Factbook; simulation?: Simulation; qa?: QA[]; previous?: Brief; directive?: string; concept?: { history: RoundLog[]; final?: { idea: string; why: string } } }
 ): string {
   const parts = [
     qaBlock(opts.qa).trim(),
@@ -329,7 +411,10 @@ export function briefUser(
     strategyDigest(synthesis),
     insightDigest(opts.insight).trim(),
     factbookDigest(opts.factbook).trim(),
-    opts.simulation ? `<target_signals>\n${opts.simulation.blindSpots.join('\n')}\n</target_signals>` : ''
+    opts.simulation ? `<target_signals>\n${opts.simulation.blindSpots.join('\n')}\n</target_signals>` : '',
+    opts.concept?.history.length
+      ? `<concept_rounds>\n${conceptDigest(opts.concept.history)}\n\n최종(final): ${opts.concept.final?.idea ?? '-'} — ${opts.concept.final?.why ?? ''}\n</concept_rounds>`
+      : ''
   ]
   if (opts.previous) parts.push(`<previous_brief>\n${j(opts.previous)}\n</previous_brief>\n\n<directive>\n${opts.directive}\n</directive>\n\n지시를 반영해 브리프를 다시 써라. 지시가 가리키는 방향으로 과감하게 바꾼다.`)
   else parts.push('1장 브리프를 써라.')

@@ -13,6 +13,13 @@ import {
   ReviewSchema,
   CloneReviewSchema,
   InsightSchema,
+  RootIssueSchema,
+  RoundSchema,
+  EditorSchema,
+  ReviewCardSchema,
+  type RootIssue,
+  type Round,
+  type Editor,
   BriefSchema,
   BriefReviewSchema,
   CandidatesSchema,
@@ -110,6 +117,7 @@ const canvas: ContextCanvas = {
     methods: ['aarrr', 'tows', 'stp', 'jtbd', 'unit', 'competition'],
     methodsReason: '퍼널·포지셔닝·고객의 일·수익성·경쟁이 모두 판단 축. CDJ는 AARRR와 중복이라 제외',
     refine: { run: true, reason: '비용·지표 디테일이 실행 판단에 직결' },
+    rounds: { run: true, reason: '첫 고객을 어디서 데려올지는 분석보다 생각의 도약이 가른다' },
     clone: { run: true, reason: '런칭 방향 자체를 거시적으로 점검할 가치가 있음' }
   },
   intent: {
@@ -364,6 +372,65 @@ const brief: Brief = {
   }
 }
 
+const rootIssue: RootIssue = {
+  task: '구독형 밀키트의 첫 고객을 모으는 전략',
+  purpose: '런칭 90일 안에 유료 구독 500명, 2회차 유지율 60%',
+  recommended: 0,
+  candidates: [
+    { issue: '퇴근한 1~2인 가구 직장인이 저녁 메뉴를 스스로 정하지 않아도 되는 상태가 된다', test: '이 안이 있으면, 퇴근길에 배달앱을 켜지 않고 집에 가게 되는가?', why: '구독을 지속시키는 것은 가격이 아니라 결정 피로의 해소다' },
+    { issue: '직장인이 회사 동료와 저녁 이야기를 나누며 같은 구독을 이어 간다', test: '이 안이 있으면, 동료에게 이번 주 메뉴를 먼저 말하게 되는가?', why: '확산은 광고보다 관계에서 일어난다' },
+    { issue: '주말에 장 보던 사람이 장보기를 건너뛴다', test: '이 안이 있으면, 주말 마트 장보기가 한 번 줄어드는가?', why: '대체 대상이 배달이 아니라 장보기일 수 있다' }
+  ]
+}
+
+const ROUND_DEMO: Round[] = [
+  {
+    current: { idea: '회사 복지 채널로 첫 고객을 모으고, 결정 대행을 약속한다', from: '전략의 추천 방향(기본안)' },
+    snag: '이 안은 아직 "B2B 제휴 영업"의 변주다. 복지몰에 상품이 하나 더 올라갈 뿐, 퇴근길의 결정이 바뀌지 않는다.',
+    moves: [
+      { move: 'depth', how: '왜 배달앱을 켜나 → 메뉴를 정할 힘이 없어서 → 왜 없나 → 하루의 마지막 결정이라서', result: '경쟁자는 다른 밀키트가 아니라 퇴근길 지하철에서 배달앱을 여는 10분이다', who: '퇴근길 직장인의', changes: '지하철에서 배달앱 대신 오늘 메뉴 알림을 보고 바로 집으로 간다', keep: true },
+      { move: 'twist', how: '시간 비틀기 — 저녁이 아니라 점심에 정한다', result: '점심시간에 동료와 오늘 저녁 메뉴를 같이 고른다', who: '직장인의', changes: '점심 12시 50분에 저녁이 이미 정해져 있다', keep: true }
+    ],
+    best: { idea: '퇴근 전 5시 50분, 오늘 저녁이 이미 정해져 있다는 알림 한 통으로 배달앱을 여는 10분을 없앤다', why: '경쟁자를 배달앱의 10분으로 다시 정의했다', novelty: 3, use: 4, testAnswer: '알림을 본 사람은 배달앱을 켤 이유가 줄어든다' },
+    questions: [
+      { type: 'premise', question: '"구독"이라는 말을 빼면, 우리는 무엇을 파는가?', attacks: '구독 모델이 상품이라는 전제', leadsTo: 'depth', gain: '파는 것이 "정해진 저녁"으로 선명해진다', loss: '정기 결제라는 익숙한 틀을 잃는다' },
+      { type: 'opposite', question: '이 알림을 가장 싫어할 사람은 누구인가?', attacks: '알림이 친절하다는 전제', leadsTo: 'twist', gain: '알림 피로를 먼저 설계한다', loss: '도달 빈도를 줄여야 한다' },
+      { type: 'onlyOne', question: '하나만 남긴다면 박스인가, 알림인가?', attacks: '박스가 핵심이라는 전제', leadsTo: 'combine', gain: '결정 대행이 본체라는 것이 드러난다', loss: '박스의 품질 경쟁에서 한발 물러난다' }
+    ],
+    fragments: ['점심에 동료와 저녁을 정하는 장면'],
+    room: 'more',
+    roomWhy: '"정해진 저녁"이 무엇을 파는지 아직 이름이 없다'
+  },
+  {
+    current: { idea: '"구독"을 빼고 "오늘 저녁이 정해져 있는 상태"를 판다', from: '1회차 · 전제 빼기 → 깊이' },
+    snag: '"정해진 저녁"은 결국 알림 서비스로 읽힌다. 박스를 받기 전까지 그 상태를 믿을 근거가 없다.',
+    moves: [
+      { move: 'combine', how: '점심에 동료와 저녁을 정하는 장면 × 회사 복지', result: '팀 단위로 같은 저녁 메뉴를 받는 "팀 저녁"', who: '같은 팀 직장인의', changes: '목요일 점심에 팀이 같이 이번 주 저녁 3개를 고르고, 퇴근길에 사무실 픽업함에서 받아 간다', keep: true }
+    ],
+    best: { idea: '팀이 점심에 이번 주 저녁을 같이 정하고, 퇴근길 사무실 픽업함에서 받아 가는 "팀 저녁"', why: '결정 대행에 관계가 붙어서 첫 박스 전에 믿을 근거(동료)가 생긴다', novelty: 4, use: 4, testAnswer: '픽업함에서 받아 간 날은 배달앱을 켜지 않는다' },
+    questions: [
+      { type: 'failFirst', question: '1년 뒤 이 안이 실패했다면, 이유는 팀이 흩어져서인가?', attacks: '팀 단위 소비가 지속된다는 전제', leadsTo: 'breadth', gain: '개인 전환 경로를 미리 설계한다', loss: '팀 단위의 단순함을 잃는다' },
+      { type: 'extreme', question: '팀 저녁을 회사 전체로 밀면 사내 식당이 되는가?', attacks: '작은 단위가 좋다는 전제', leadsTo: 'breadth', gain: 'B2B 계약 규모가 커진다', loss: '"우리 팀" 감각이 사라진다' },
+      { type: 'premise', question: '사무실 픽업함을 빼도 이 안이 성립하는가?', attacks: '픽업함이 필수라는 전제', leadsTo: 'twist', gain: '재택 직원까지 닿는다', loss: '퇴근길 동선의 이점을 잃는다' }
+    ],
+    fragments: [],
+    room: 'less',
+    roomWhy: '두 회차의 조각이 하나로 합쳐졌다. 다음은 표현의 문제다'
+  }
+]
+
+const editorFor = (n: number): Editor => ({
+  vagueMoves: [],
+  pickedQuestion: 0,
+  card:
+    n === 1
+      ? { current: '퇴근 전 알림 한 통으로, 퇴근길에 배달앱을 여는 10분을 없애는 안입니다.', snag: '아직 B2B 제휴 영업의 변주입니다. 복지몰에 상품이 하나 늘 뿐, 퇴근길의 결정은 그대로입니다.', question: '"구독"이라는 말을 빼면, 우리는 무엇을 파는가? (전제 빼기 → 깊이)', ifYes: '파는 것이 "오늘 저녁이 정해져 있는 상태"로 선명해집니다. 대신 정기 결제라는 익숙한 틀을 잃습니다.' }
+      : { current: '팀이 점심에 이번 주 저녁을 같이 정하고, 퇴근길 사무실 픽업함에서 받아 가는 안입니다.', snag: '팀이 흩어지면 같이 정할 사람이 사라집니다.', question: '1년 뒤 실패했다면, 이유는 팀이 흩어져서인가? (실패 먼저 → 넓이)', ifYes: '팀에서 개인으로 넘어가는 경로를 미리 만듭니다. 대신 팀 단위의 단순함을 잃습니다.' },
+  next: n === 1 ? { move: 'combine', direction: '1회차 조각(점심의 동료)과 복지 채널을 부딪혀 본다' } : { move: 'breadth', direction: '개인 전환 사례를 다른 업계(사내 카페 정기권)에서 가져온다' },
+  stop: n >= 2,
+  stopWhy: n >= 2 ? '두 회차의 조각이 하나로 합쳐졌고, 남은 것은 표현의 문제다' : ''
+})
+
 const briefReview: BriefReview = {
   judgment: brief.judgment,
   scopeMatch: true,
@@ -400,6 +467,7 @@ const taste: Taste = {
     { id: 4, why: '퇴근길 배달앱이라는 실제 장면을 정면으로 건드린다' },
     { id: 7, why: '복지 채널에서 그대로 쓸 수 있다' }
   ],
+  rescue: [{ id: 2, how: '"고르지 않아도 되는" 이유(취향 학습)를 설명 문장에 붙이면 쓸모가 생긴다' }],
   killedPatterns: ['"건강·간편"처럼 업계 공통 문구', '장면만 있고 무엇을 해 주는지 빠진 문구'],
   sharpen: '헤드는 25자 안에서 "대신 정해 준다"는 약속을 남기고, 설명에는 무엇이(알림·큐레이션) 해 주는지 넣는다.'
 }
@@ -485,6 +553,16 @@ export class DemoEngine {
     if (s === SimulationSchema) return simulation as never
     if (s === SynthesisSchema) return synthesis as never
     if (s === BriefSchema) return brief as never
+    if (s === RootIssueSchema) return rootIssue as never
+    if (s === RoundSchema) {
+      const n = Number(user.match(/(\d+)회차다/)?.[1] ?? 1)
+      return structuredClone(ROUND_DEMO[Math.min(n, ROUND_DEMO.length) - 1]) as never
+    }
+    if (s === EditorSchema) return editorFor(user.includes('[1회차]') ? 2 : 1) as never
+    if (s === ReviewCardSchema) {
+      const m = user.match(/<card>\n([\s\S]*?)\n<\/card>/)
+      return (m ? JSON.parse(m[1]) : editorFor(1).card) as never
+    }
     if (s === BriefReviewSchema) return briefReview as never
     if (s === CandidatesSchema) {
       const angle = user.match(/<angle>\n(.+?) —/)?.[1] ?? '결정 대행'

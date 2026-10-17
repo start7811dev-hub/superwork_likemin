@@ -266,6 +266,17 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
 
   if (id === 'review') return r.verification?.review ? <ReviewView r={r.verification.review} title="재검증" /> : <p className="muted">결과가 나오면 다시 고민합니다</p>
   if (id === 'refine') return r.verification?.refine ? <ReviewView r={r.verification.refine} title="고도화" /> : <p className="muted">재검증 이후 디테일을 다듬습니다</p>
+  if (id === 'rounds' || (id === 'clone' && r.concept?.rounds.length)) {
+    const c = r.concept
+    if (!c?.rounds.length) return <p className="muted">전략이 끝나면 기본안에서 출발해 걸림 → 수 → 대입 → 고르기를 돕니다</p>
+    return (
+      <>
+        {r.rootIssue && <Sec title="근본 이슈"><p>{r.rootIssue.issue}</p><p className="small muted">판정 질문: {r.rootIssue.test}</p></Sec>}
+        {c.final && <Sec title="지금의 최선"><p><b>{c.final.idea}</b></p></Sec>}
+        <RoundsTrail run={r} />
+      </>
+    )
+  }
   if (id === 'brief') {
     const b = r.workBrief
     if (!b) return <p className="muted">전략이 끝나면 MPM이 결과물을 위한 1장 브리프를 씁니다</p>
@@ -378,6 +389,28 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
   return null
 }
 
+const MOVE_KO: Record<string, string> = { depth: '깊이', breadth: '넓이', twist: '비틀기', combine: '조합' }
+const ANSWER_KO: Record<string, string> = { go: '이 질문으로 가자', half: '반만', no: '아니다', stop: '지금 안으로 가자', auto: '자동 진행' }
+
+/** 콘셉트 회차의 흐름 (Inspector · 리포트 공용) */
+export function RoundsTrail({ run }: { run: RunRecord }) {
+  return (
+    <ol className="rounds-trail">
+      {run.concept?.rounds.map((h) => (
+        <li key={h.n}>
+          <div className="r-head">{h.n}회차</div>
+          <div className="r-row"><span>걸림</span><span>{h.round.snag}</span></div>
+          <div className="r-row"><span>수</span><span>{h.round.moves.map((m) => `${MOVE_KO[m.move]}: ${m.result}${m.keep ? '' : ' (버림)'}`).join(' / ')}</span></div>
+          <div className="r-row"><span>대입</span><span>{h.round.moves.filter((m) => m.keep).map((m) => `${m.who} ${m.changes}`).join(' / ') || '-'}</span></div>
+          <div className="r-row"><span>최선</span><span className="r-best">{h.round.best.idea}</span></div>
+          <div className="r-row"><span>질문</span><span>{h.card.question}</span></div>
+          {h.answer && <div className="r-row"><span>MIN</span><span>{ANSWER_KO[h.answer.kind]}{h.answer.text ? ` — ${h.answer.text}` : ''}</span></div>}
+        </li>
+      ))}
+    </ol>
+  )
+}
+
 const TITLES: Record<string, string> = {
   inbox: '업무 지시',
   intake: 'MPM · 맥락 캔버스',
@@ -388,7 +421,8 @@ const TITLES: Record<string, string> = {
   insight: 'SUPER INSIGHT 연구소',
   review: 'MPM · 재검증',
   refine: 'MPM · 최종 검증 A (고도화)',
-  clone: 'MPM 클론 · 브리프 심사',
+  clone: 'MPM 클론 · 편집장',
+  rounds: '콘셉트 회차',
   synthesize: 'MPM · 전략 종합',
   brief: 'MPM · 1장 브리프',
   produce: '제작 스튜디오',

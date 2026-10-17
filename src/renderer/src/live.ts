@@ -2,7 +2,7 @@
  * 공정 시각화 상태. 메인 프로세스의 PipelineEvent를 누적하거나,
  * 저장된 RunRecord로부터 완료 상태를 복원한다.
  */
-import type { Brief, ChallengeQuestion, TaskSpec } from '@shared/schemas'
+import type { Brief, ChallengeQuestion, ReviewCard, RootIssue, TaskSpec } from '@shared/schemas'
 import type { NodeStatus, PacketKind, PipelineEvent, RunRecord, UsageSummary } from '@shared/types'
 
 export interface Packet {
@@ -25,6 +25,10 @@ export interface LiveState {
   questions: { reading: string; items: ChallengeQuestion[] } | null
   /** MIN의 승인을 기다리는 1장 브리프 */
   brief: Brief | null
+  /** MIN이 확정할 근본 이슈 후보 */
+  root: RootIssue | null
+  /** 회차 사이의 리뷰 카드 */
+  card: { round: number; maxRounds: number; card: ReviewCard; stopHint?: string; last: boolean } | null
   error?: string
 }
 
@@ -37,7 +41,9 @@ export const EMPTY: LiveState = {
   usage: {},
   record: null,
   questions: null,
-  brief: null
+  brief: null,
+  root: null,
+  card: null
 }
 
 let packetSeq = 0
@@ -48,14 +54,20 @@ export function reduce(state: LiveState, e: PipelineEvent): LiveState {
   switch (e.type) {
     case 'run':
       if (e.status === 'started') return { ...EMPTY, runId: e.runId, status: 'running' }
-      return { ...state, status: e.status, error: e.error, questions: null, brief: null }
+      return { ...state, status: e.status, error: e.error, questions: null, brief: null, root: null, card: null }
     case 'brief':
       return { ...state, brief: e.brief }
+    case 'root':
+      return { ...state, root: e.root }
+    case 'card':
+      return { ...state, card: { round: e.round, maxRounds: e.maxRounds, card: e.card, stopHint: e.stopHint, last: e.last } }
     case 'questions':
       return { ...state, questions: { reading: e.reading, items: e.questions } }
     case 'node':
       if (state.questions && e.status !== 'waiting' && (e.nodeId === 'intake' || e.nodeId === 'audit')) state = { ...state, questions: null }
       if (state.brief && e.nodeId === 'brief' && e.status !== 'waiting') state = { ...state, brief: null }
+      if (state.root && e.nodeId === 'intake' && e.status !== 'waiting') state = { ...state, root: null }
+      if (state.card && e.nodeId === 'rounds' && e.status !== 'waiting') state = { ...state, card: null }
       return { ...state, nodes: { ...state.nodes, [e.nodeId]: { status: e.status, detail: e.detail } } }
     case 'workers': {
       const nodes = { ...state.nodes }
@@ -99,6 +111,8 @@ export function fromRecord(r: RunRecord): LiveState {
   if (v?.review) nodes.review = done(v.review.verdict === 'improve' ? `개선 ${v.review.issues.length}건` : '유지')
   if (v?.refine) nodes.refine = done(v.refine.verdict === 'improve' ? `고도화 ${v.refine.issues.length}건` : '유지')
   if (v?.clone) nodes.clone = done(v.clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
+  if (r.concept?.rounds.length) nodes.rounds = done(`${r.concept.rounds.length}회차`)
+  if (r.concept?.rounds.length && !r.briefReview) nodes.clone = done(`${r.concept.rounds.length}회차 편집`)
   if (r.workBrief) nodes.brief = done(r.workBrief.proposition.slice(0, 24))
   if (r.briefReview) nodes.clone = done(r.briefReview.verdict === 'rewrite' ? '직권 지시 반영' : '브리프 통과')
   const pd = r.production
@@ -115,7 +129,7 @@ export function fromRecord(r: RunRecord): LiveState {
     if (!pr.simulate.run) sk('simulate', pr.simulate.reason)
     if (!pr.methods.length) sk('insight', pr.methodsReason)
     if (!pr.refine.run) sk('refine', pr.refine.reason)
-    if (!pr.clone.run && !r.briefReview) sk('clone', pr.clone.reason)
+    if (pr.rounds && !pr.rounds.run) sk('rounds', pr.rounds.reason)
   }
   if (r.status === 'error') {
     const failing = !r.canvas ? 'intake' : !r.plan ? 'dispatch' : !r.simulation ? 'audit' : !r.insight ? 'insight' : !r.synthesis ? 'synthesize' : !v?.review ? 'review' : !r.workBrief ? 'brief' : !r.briefReview ? 'clone' : !r.deliverable ? 'produce' : 'deliver'
@@ -131,6 +145,8 @@ export function fromRecord(r: RunRecord): LiveState {
     record: r,
     questions: null,
     brief: null,
+    root: null,
+    card: null,
     error: r.error
   }
 }

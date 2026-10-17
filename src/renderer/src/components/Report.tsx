@@ -6,6 +6,7 @@ import { api } from '../api'
 import FactbookView from './FactbookView'
 import Md from './Md'
 import StrategyViz, { Pyramid432 } from './StrategyViz'
+import { RoundsTrail } from './Inspector'
 
 const LV: Record<string, string> = { high: '높음', medium: '중간', low: '낮음' }
 
@@ -156,7 +157,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
       {tab === 'verify' && (
         <article className="doc">
           <div className="eyebrow">성미 급한 MPM의 검증 이력</div>
-          <h1>전략 → 재검증 → 브리프 → 클론 심사 → 제작 → 취향 심사</h1>
+          <h1>전략 → 재검증 → 콘셉트 회차 → 브리프 → 제작 → 취향 심사</h1>
           <ul className="vtrail">
             {run.verification?.versions.map((v, i) => <li key={i}><b>v{i + 1} · {v.label}</b> <span className="muted small">{new Date(v.at).toLocaleTimeString('ko-KR')}</span></li>)}
           </ul>
@@ -188,6 +189,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
           {run.production?.taste && run.production.candidates && (
             <section><h2>취향 심사 — 후보 {run.production.candidates.length}개 중 {run.production.taste.picks.length}개 채택</h2>
               <p className="muted">버린 이유: {run.production.taste.killedPatterns.join(' · ')}</p>
+              {run.production.taste.rescue?.length ? <p className="muted">살린 조각: {run.production.taste.rescue.map((x) => `${run.production!.candidates![x.id]?.head ?? ''} — ${x.how}`).join(' · ')}</p> : null}
               <ol className="cands">
                 {run.production.candidates.map((c, i) => {
                   const pick = run.production!.taste!.picks.find((p) => p.id === i)
@@ -229,6 +231,21 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
             ))}
           </section>
         )}
+
+        {run.rootIssue && (
+          <section className="root-sec">
+            <div className="eyebrow">근본 이슈 · {run.rootIssue.by === 'min' ? 'MIN 확정' : 'MPM 추천'}</div>
+            <p className="brief-prop">{run.rootIssue.issue}</p>
+            <p className="muted">판정 질문: {run.rootIssue.test}</p>
+          </section>
+        )}
+
+        {run.concept?.rounds.length ? (
+          <section>
+            <h2>콘셉트 회차 — {run.concept.rounds.length}회차{run.concept.stoppedBy ? ` · ${run.concept.stoppedBy}` : ''}</h2>
+            <RoundsTrail run={run} />
+          </section>
+        ) : null}
 
         {run.workBrief && <BriefCard b={run.workBrief} />}
 

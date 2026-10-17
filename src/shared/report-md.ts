@@ -47,6 +47,17 @@ export function runToMarkdown(run: RunRecord): string {
     out.push(`## ${d.title}${d.summary ? `\n\n${d.summary}` : ''}${d.concept ? `\n\n> ${d.concept}` : ''}`)
     out.push(d.sections.map((x) => `### ${x.heading}\n\n${x.body}`).join('\n\n'))
   }
+  if (run.rootIssue) out.push(`## 근본 이슈 (${run.rootIssue.by === 'min' ? 'MIN 확정' : 'MPM 추천'})\n\n**${run.rootIssue.issue}**\n\n판정 질문: ${run.rootIssue.test}`)
+  if (run.concept?.rounds.length) {
+    const MV: Record<string, string> = { depth: '깊이', breadth: '넓이', twist: '비틀기', combine: '조합' }
+    const AN: Record<string, string> = { go: '이 질문으로 가자', half: '반만', no: '아니다', stop: '지금 안으로 가자', auto: '자동 진행' }
+    out.push(
+      `## 콘셉트 회차 (${run.concept.rounds.length}회차${run.concept.stoppedBy ? ` · ${run.concept.stoppedBy}` : ''})\n\n` +
+        run.concept.rounds
+          .map((h) => `### ${h.n}회차\n\n- 걸림: ${h.round.snag}\n- 수: ${h.round.moves.map((m) => `${MV[m.move]} — ${m.result}${m.keep ? '' : ' (버림)'}`).join(' / ')}\n- 최선: **${h.round.best.idea}**\n- 찌르는 질문: ${h.card.question}\n- MIN: ${h.answer ? `${AN[h.answer.kind]}${h.answer.text ? ` — ${h.answer.text}` : ''}` : '-'}`)
+          .join('\n\n')
+    )
+  }
   if (run.workBrief) out.push(briefToMarkdown(run.workBrief))
 
   if (s) {
