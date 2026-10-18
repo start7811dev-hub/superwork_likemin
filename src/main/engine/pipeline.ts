@@ -96,6 +96,8 @@ export interface StartArgs {
   depth: Depth
   /** 첨부 파일 경로 (최대 5개) */
   attachments?: string[]
+  /** 요즘 MIN이 꽂힌 것 (선택) */
+  now?: string
   emit: (e: PipelineEvent) => void
 }
 
@@ -160,6 +162,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     status: 'running',
     brainVersion: brain.version,
     demo: !args.apiKey,
+    minNow: args.now,
     tasks: {},
     usage: {},
     log: []
@@ -219,6 +222,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     if (digest) materialBlock = { type: 'text', text: digest, cache_control: { type: 'ephemeral' } }
     const intakeBlocks = toBlocks(collected.items)
     if (collected.items.length) log('inbox', `참고 자료 ${collected.items.length}건 — MPM이 맥락 설계에서 직접 검토합니다`)
+    if (run.minNow) log('inbox', `요즘 MIN이 꽂힌 것: ${run.minNow} — 콘셉트 회차의 재료로 씁니다`)
 
     /* ---- 1. INTAKE ---- */
     node('inbox', 'done', collected.items.length ? `업무 접수 · 자료 ${collected.items.length}건` : '업무 접수')
@@ -652,7 +656,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
           const round = await engine.structured({
             model: models.mpm,
             system: system(P.ROLE.concept),
-            user: P.conceptUser(result, { n, history, insight, factbook: run.factbook, banMove: lastMove ? MOVES[lastMove as keyof typeof MOVES] : undefined, steer }),
+            user: P.conceptUser(result, { n, history, insight, factbook: run.factbook, now: run.minNow, banMove: lastMove ? MOVES[lastMove as keyof typeof MOVES] : undefined, steer }),
             effort: effort.mpm,
             signal,
             maxTokens: 24000,

@@ -104,7 +104,7 @@ function registerIpc(): void {
   ipcMain.handle('runs:remove', (_e, id: string) => removeRun(id))
   ipcMain.handle('runs:cancel', (_e, id: string) => cancelRun(id))
   ipcMain.handle('runs:answer', (_e, id: string, a: string[] | null) => answerRun(id, a))
-  ipcMain.handle('runs:start', (_e, brief: string, depth: Depth, demo?: boolean, attachments?: string[]) => {
+  ipcMain.handle('runs:start', (_e, brief: string, depth: Depth, demo?: boolean, attachments?: string[], now?: string) => {
     const { key } = getApiKey()
     if (!key && !demo) throw new Error('먼저 설정에서 Claude API 키를 등록하세요.')
     return startRun({
@@ -113,6 +113,7 @@ function registerIpc(): void {
       brief,
       depth,
       attachments: (attachments ?? []).slice(0, LIMITS.files),
+      now: now?.trim().slice(0, 1000) || undefined,
       emit: (ev) => win?.webContents.send('runs:event', ev)
     })
   })

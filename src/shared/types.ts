@@ -179,6 +179,8 @@ export interface RunRecord {
   /** SUPER INSIGHT: AARRR·TOWS·STP 2.0·CDJ 분석과 MIN'S 4-3-2 THINKING */
   insight?: Insight
   synthesis?: Synthesis
+  /** 요즘 MIN이 꽂힌 것 — 이 업무의 콘셉트 재료로만 쓰고 규칙으로 저장하지 않는다 */
+  minNow?: string
   /** 근본 이슈: 모든 중간 결과를 대입할 자리 */
   rootIssue?: { issue: string; test: string; task: string; purpose: string; by: 'min' | 'mpm'; candidates: RootIssue['candidates'] }
   /** 콘셉트 회차: 걸림 → 수 → 대입 → 고르기 → 리뷰 카드 */
@@ -389,7 +391,7 @@ export interface LikeMinApi {
     list(): Promise<RunSummary[]>
     get(id: string): Promise<RunRecord | null>
     remove(id: string): Promise<void>
-    start(brief: string, depth: Depth, demo?: boolean, attachments?: string[]): Promise<string>
+    start(brief: string, depth: Depth, demo?: boolean, attachments?: string[], now?: string): Promise<string>
     cancel(id: string): Promise<void>
     /** 질문 게이트 응답. null이면 가정대로 진행 */
     answer(id: string, answers: string[] | null): Promise<void>

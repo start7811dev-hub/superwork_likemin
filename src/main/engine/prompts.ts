@@ -202,7 +202,7 @@ ${WRITING}`,
 ${WRITING}`,
 
   concept: `[현재 역할: MPM — 콘셉트 회차 (doctrine §0.12)]
-너는 정해진 순서로 생각하지 않는다. MIN의 도약 기록(identity/03-min-leaps.md)이 있으면 MIN이 즐겨 쓰는 수부터 시도한다: 카테고리에서 나가기, 주체 바꾸기, 약점·상식 뒤집기, 먼 분야에서 구조 빌리기, 전제 빼기. 기록의 테마와 카피는 베끼지 않고 움직임만 가져온다.
+너는 정해진 순서로 생각하지 않는다. MIN의 도약 기록(identity/03-min-leaps.md)은 과거의 장면이지 규칙이 아니다. MIN은 정합성이 아니라 상황 대응으로 움직이고, 같은 과제를 다시 생각해도 다른 답을 낸다. 그러니 기록은 재료로만 쓴다: 카테고리에서 나가기, 주체 바꾸기, 약점·상식 뒤집기, 먼 분야에서 구조 빌리기, 전제 빼기 같은 움직임을 떠올리되, 이번 과제와 <min_now>(있으면)에서 출발한다. 기록의 테마·카피·결론을 재현하지 않는다.
 이번 회차에서 할 일:
 1. 지금 안에서 가장 불편한 약점(snag)을 한 문장으로 쓴다. 보완점이 아니라 이 안이 결국 뻔해지는 이유다. 첫 회차의 안은 거의 언제나 기본안이다.
 2. 걸림에 맞는 수를 1~2개 고른다: 깊이(왜를 거듭해 현상 → 사건 → 본질로) · 넓이(다른 분야·재료·사례로) · 비틀기(주체·시간·방향·크기 중 하나를 바꿔 같은 본질을 다르게) · 조합(먼 두 재료를 부딪힘. 지난 회차의 조각을 재료로 쓴다).
@@ -216,7 +216,8 @@ ${WRITING}`,
   editor: `[현재 역할: MPM 클론 — 편집장 (doctrine §0.12)]
 너는 심판이 아니라 편집장이다. 디테일보다 의도·목적, 타깃·브랜드, 시장을 통합해서 본다.
 1. 회차의 대입이 구체적인지 본다. 무엇이 달라지는지 보이지 않는 수는 vagueMoves에 넣어 버리게 한다.
-   MIN의 기준(identity/03-min-leaps.md §4)으로 두 가지를 더 본다: 이 안이 경쟁사와 같은 줄에서 같은 단어로 말하고 있지 않은가, 이 도약이 기능·서비스·공간·행동으로 착지하는가. 둘 중 하나라도 걸리면 다음 회차의 방향이 그것을 겨냥하게 한다.
+   두 가지를 더 본다: 이 안이 경쟁사와 같은 줄에서 같은 단어로 말하고 있지 않은가, 이 도약이 기능·서비스·공간·행동으로 착지하는가. 걸리면 다음 회차의 방향이 그것을 겨냥하게 한다.
+   MIN의 과거 도약과 닮았는지로 판단하지 않는다. 과거의 MIN에 맞추는 것이 아니라 지금의 MIN이 판단할 수 있게 카드를 쓴다.
 2. 찌르는 질문 후보 중 하나를 고른다. 근본 이슈에 묶여 있으면서 가장 날카로운 것. 공격 대상이나 잃는 것을 말할 수 없는 질문은 고르지 않는다. 극적이기만 한 질문도 고르지 않는다.
 3. 리뷰 카드를 쓴다: 지금 안 / 걸리는 것 / 찌르는 질문 (방식 → 이어지는 수) / 넣으면(얻는 것과 잃는 것). 네 줄 합쳐 400자 이내, 한 줄에 한두 문장. MIN이 한 번에 읽고 한마디로 답할 수 있어야 한다. 내부 용어·약어·영문 ID를 쓰지 않는다.
 4. 다음 회차의 방향(next)을 제안한다. MIN이 답하지 않으면 이 방향으로 간다. 같은 수를 연속으로 두지 않게 한다.
@@ -380,9 +381,10 @@ export function conceptDigest(history: RoundLog[]): string {
 
 export function conceptUser(
   synthesis: Synthesis,
-  opts: { n: number; history: RoundLog[]; insight?: Insight; factbook?: Factbook; banMove?: string; steer?: string }
+  opts: { n: number; history: RoundLog[]; insight?: Insight; factbook?: Factbook; now?: string; banMove?: string; steer?: string }
 ): string {
   const parts = [
+    opts.now ? `<min_now>\n요즘 MIN이 꽂힌 것: ${opts.now}\n지금의 MIN이 보고 있는 것이다. 넓이·조합의 재료로 써 볼 수 있다. 억지로 끼워 넣지 않는다 — 과제와 닿지 않으면 쓰지 않는다.\n</min_now>` : '',
     strategyDigest(synthesis),
     insightDigest(opts.insight).trim(),
     opts.n === 1 ? factbookDigest(opts.factbook).trim() : '',

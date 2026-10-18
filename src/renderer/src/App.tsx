@@ -37,6 +37,7 @@ export default function App() {
   const [runs, setRuns] = useState<RunSummary[]>([])
   const [selected, setSelected] = useState<string | null>(null)
   const [brief, setBrief] = useState('')
+  const [now, setNow] = useState('')
   const [depth, setDepth] = useState<Depth>('standard')
   const [hasKey, setHasKey] = useState(true)
   const [toast, setToast] = useState('')
@@ -95,10 +96,11 @@ export default function App() {
     try {
       // runId가 null인 동안 첫 'run started' 이벤트가 상태를 초기화하고 runId를 고정한다.
       dispatch({ type: 'load', state: EMPTY })
-      await api.runs.start(text, depth, demo, files.map((f) => f.path))
+      await api.runs.start(text, depth, demo, files.map((f) => f.path), now)
       setSelected('inbox')
       setView('factory')
       setBrief('')
+      setNow('')
       setFiles([])
       refreshRuns()
     } catch (e) {
@@ -239,6 +241,14 @@ export default function App() {
                     placeholder={running ? '공정이 진행 중입니다…' : 'MPM에게 업무를 지시하세요. 배경, 제약, 기한, 원하는 결과물을 자유롭게 적어 주세요. 링크(깃 주소 등)를 넣으면 열어서 분석하고, 파일은 끌어다 놓아 첨부할 수 있어요.'}
                     disabled={running}
                   />
+                  {!running && (
+                    <input
+                      className="now-input"
+                      value={now}
+                      onChange={(e) => setNow(e.target.value)}
+                      placeholder="요즘 내가 꽂힌 것 (선택) — 관심사·읽은 것·고민. 이번 업무의 콘셉트 재료로만 쓰고 저장하지 않습니다"
+                    />
+                  )}
                   <div className="command-foot">
                     <button className="ghost attach-btn" disabled={running || files.length >= MAX_FILES} onClick={async () => addFiles(await api.files.pick())} title="MD · PDF · PPTX · DOCX · XLSX · JPG · PNG · ZIP (최대 5개)">
                       첨부 {files.length > 0 ? `${files.length}/${MAX_FILES}` : ''}
