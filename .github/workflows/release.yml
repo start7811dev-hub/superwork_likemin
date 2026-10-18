@@ -41,10 +41,12 @@ jobs:
         env:
           ID1: ${{ secrets.MIN_IDENTITY_01_B64 }}
           ID2: ${{ secrets.MIN_IDENTITY_02_B64 }}
+          ID3: ${{ secrets.MIN_IDENTITY_03_B64 }}
         run: |
-          if [ -z "$ID1" ] || [ -z "$ID2" ]; then echo "::error::MIN_IDENTITY secrets are missing"; exit 1; fi
+          if [ -z "$ID1" ] || [ -z "$ID2" ] || [ -z "$ID3" ]; then echo "::error::MIN_IDENTITY secrets are missing"; exit 1; fi
           echo "$ID1" | base64 --decode > brain/identity/01-min-introduce.md
           echo "$ID2" | base64 --decode > brain/identity/02-min-skill.md
+          echo "$ID3" | base64 --decode > brain/identity/03-min-leaps.md
       - run: npm run typecheck
       - run: npm run build
       # macOS: 서명용 키체인을 직접 만들어 Developer ID 인증서를 넣는다 (electron-builder의 자동 키체인 처리는 최신 러너에서 실패함)

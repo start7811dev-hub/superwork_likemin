@@ -651,8 +651,8 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
           node('rounds', 'running', `${n}회차 · 걸림 찾는 중`)
           const round = await engine.structured({
             model: models.mpm,
-            system: system(P.ROLE.painter),
-            user: P.painterUser(result, { n, history, insight, factbook: run.factbook, banMove: lastMove ? MOVES[lastMove as keyof typeof MOVES] : undefined, steer }),
+            system: system(P.ROLE.concept),
+            user: P.conceptUser(result, { n, history, insight, factbook: run.factbook, banMove: lastMove ? MOVES[lastMove as keyof typeof MOVES] : undefined, steer }),
             effort: effort.mpm,
             signal,
             maxTokens: 24000,
