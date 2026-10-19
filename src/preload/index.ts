@@ -53,6 +53,7 @@ const api: LikeMinApi = {
     start: (brief, depth, demo, attachments, now) => invoke('runs:start', brief, depth, demo, attachments, now),
     cancel: (id) => invoke('runs:cancel', id),
     answer: (id, a) => invoke('runs:answer', id, a),
+    resume: (id) => invoke('runs:resume', id),
     feedback: (id, chosen, note) => invoke('runs:feedback', id, chosen, note),
     onEvent: (cb) => subscribe<PipelineEvent>('runs:event', cb)
   },

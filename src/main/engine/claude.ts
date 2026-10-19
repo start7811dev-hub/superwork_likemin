@@ -30,6 +30,22 @@ export class PipelineCancelled extends Error {
   }
 }
 
+/** 계정의 사용 한도·잔액 문제 — 재시도해도 풀리지 않으므로 공정을 저장하고 멈춘다 */
+export function isLimitError(err: unknown): boolean {
+  const m = err instanceof Error ? err.message : String(err)
+  return /usage limits|spend limit|credit balance is too low|billing/i.test(m)
+}
+
+/** 한도 오류를 MIN이 바로 행동할 수 있는 문장으로 */
+export function limitMessage(err: unknown): string {
+  const m = err instanceof Error ? err.message : String(err)
+  const when = m.match(/regain access on (\d{4}-\d{2}-\d{2})(?: at (\d{2}:\d{2}) UTC)?/)
+  const credit = /credit balance/i.test(m)
+  return credit
+    ? 'API 크레딧 잔액이 부족해 멈췄습니다. 지금까지의 결과는 저장되어 있습니다. Claude 콘솔의 Billing에서 크레딧을 충전한 뒤 "이어서 진행"을 누르면 멈춘 단계부터 다시 시작합니다.'
+    : `Claude 콘솔에 설정한 API 사용 한도에 도달해 멈췄습니다. 지금까지의 결과는 저장되어 있습니다. 콘솔의 Settings › Limits에서 월 한도를 올리거나${when ? ` 한도가 풀리는 ${when[1]}${when[2] ? ` ${when[2]} UTC` : ''} 이후에` : ' 한도가 풀린 뒤'} "이어서 진행"을 누르면 멈춘 단계부터 다시 시작합니다. 끝난 단계는 다시 돌리지 않습니다.`
+}
+
 export interface CallOptions {
   model: string
   system: TextBlock[]

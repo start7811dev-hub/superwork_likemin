@@ -1,7 +1,7 @@
 import { app, BrowserWindow, dialog, ipcMain, shell } from 'electron'
 import { readFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import type { Depth, ExportFormat, RoleDef, Settings } from '../shared/types'
+import type { Depth, ExportFormat, PipelineEvent, RoleDef, Settings } from '../shared/types'
 import { runToMarkdown } from '../shared/report-md'
 import {
   addKnowledge,
@@ -104,6 +104,23 @@ function registerIpc(): void {
   ipcMain.handle('runs:remove', (_e, id: string) => removeRun(id))
   ipcMain.handle('runs:cancel', (_e, id: string) => cancelRun(id))
   ipcMain.handle('runs:answer', (_e, id: string, a: string[] | null) => answerRun(id, a))
+  ipcMain.handle('runs:resume', (_e, id: string) => {
+    const r = mustRun(id)
+    if (r.status === 'running') throw new Error('이미 진행 중인 실행입니다.')
+    if (r.status === 'done') throw new Error('이미 끝난 실행입니다.')
+    const { key } = getApiKey()
+    if (!key && !r.demo) throw new Error('먼저 설정에서 Claude API 키를 등록하세요.')
+    return startRun({
+      apiKey: r.demo ? null : key,
+      settings: loadSettings(),
+      brief: r.brief,
+      depth: r.depth,
+      attachments: r.attachments,
+      now: r.minNow,
+      resume: r,
+      emit: (ev) => win?.webContents.send('runs:event', ev)
+    })
+  })
   ipcMain.handle('runs:start', (_e, brief: string, depth: Depth, demo?: boolean, attachments?: string[], now?: string) => {
     const { key } = getApiKey()
     if (!key && !demo) throw new Error('먼저 설정에서 Claude API 키를 등록하세요.')
@@ -164,6 +181,27 @@ function registerIpc(): void {
   /* 업데이트 */
   ipcMain.handle('updater:check', () => updater.check())
   ipcMain.handle('updater:install', () => updater.install())
+}
+
+/** 개발용: 한도 오류로 멈춘 뒤 이어서 진행하는 흐름을 시험한다 (SWLM_RESUME_TEST=결과파일) */
+async function devResumeTest(out: string): Promise<void> {
+  const { writeFileSync } = await import('node:fs')
+  const { demoCalls } = await import('./engine/demo')
+  const settings = { ...loadSettings(), briefApproval: false, rootIssueAsk: false, roundReview: 'auto' as const, askMode: 'never' as const }
+  const until = (id: string) => new Promise<string>((res) => {
+    const t = setInterval(() => { const r = getRun(id); if (r && r.status !== 'running') { clearInterval(t); res(r.status) } }, 500)
+  })
+  const emit = (ev: PipelineEvent) => win?.webContents.send('runs:event', ev)
+  const id = startRun({ apiKey: null, settings, brief: '30대 직장인 대상 구독형 밀키트 서비스 초기 고객 확보 전략', depth: 'standard', emit })
+  const first = await until(id)
+  const afterFail = getRun(id)!
+  const callsBefore = { ...demoCalls }
+  for (const k of Object.keys(demoCalls)) delete demoCalls[k]
+  startRun({ apiKey: null, settings, brief: afterFail.brief, depth: afterFail.depth, resume: afterFail, emit })
+  const second = await until(id)
+  const done = getRun(id)!
+  writeFileSync(out, JSON.stringify({ first, firstError: afterFail.error, resumable: afterFail.resumable, callsBeforeFail: callsBefore, second, callsOnResume: { ...demoCalls }, reusedLogs: done.log.filter((l) => l.text.includes('저장된 결과') || l.text.includes('이어서 진행')).length, deliverable: done.deliverable?.title, versions: done.verification?.versions.map((v) => v.label) }, null, 2))
+  app.quit()
 }
 
 /** 개발용: 데모를 자동 실행하며 시점별 화면을 저장한다 (SWLM_SHOT_DIR=폴더) */
@@ -231,6 +269,7 @@ async function devCapture(dir: string): Promise<void> {
 
 // 개발용 캡처는 임시 데이터 폴더에서 돌려 실제 기록·비용 집계에 섞이지 않게 한다
 if (process.env.SWLM_SHOT_DIR) app.setPath('userData', join(process.env.SWLM_SHOT_DIR, '.userdata'))
+if (process.env.SWLM_RESUME_TEST) app.setPath('userData', `${process.env.SWLM_RESUME_TEST}.userdata`)
 
 const gotLock = app.requestSingleInstanceLock()
 if (!gotLock) app.quit()
@@ -244,6 +283,7 @@ else {
     registerIpc()
     createWindow()
     if (process.env.SWLM_SHOT_DIR) void devCapture(process.env.SWLM_SHOT_DIR)
+    if (process.env.SWLM_RESUME_TEST) void devResumeTest(process.env.SWLM_RESUME_TEST)
     app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow())
   })
   app.on('window-all-closed', () => process.platform !== 'darwin' && app.quit())

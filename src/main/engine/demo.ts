@@ -56,6 +56,10 @@ const wait = (ms: number, signal: AbortSignal) =>
     })
   })
 
+/** 개발용: SWLM_DEMO_FAIL=refine 이면 고도화 단계에서 한 번 한도 오류를 낸다 (이어서 진행 시험) */
+let demoFailed = false
+export const demoCalls: Record<string, number> = {}
+
 /** 데모에서 발산형(카피) 제작을 보려면 SWLM_DEMO_KIND=copy */
 const COPY_MODE = process.env.SWLM_DEMO_KIND === 'copy'
 
@@ -525,6 +529,13 @@ export class DemoEngine {
     const user = typeof opts.user === 'string' ? opts.user : opts.user.map((b) => ('text' in b ? b.text : '')).join('\n')
     await wait(s === SynthesisSchema ? 4200 : s === ContextCanvasSchema ? 3200 : 1800 + Math.random() * 2400, opts.signal)
     this.bump(opts.model)
+    const key = s === ReviewSchema ? 'review/refine' : String(Object.keys((opts.schema as unknown as { shape?: object }).shape ?? {}).slice(0, 2))
+    demoCalls[key] = (demoCalls[key] ?? 0) + 1
+    // 재검증 다음의 두 번째 Review 호출 = 고도화
+    if (process.env.SWLM_DEMO_FAIL === 'refine' && key === 'review/refine' && demoCalls[key] === 2 && !demoFailed) {
+      demoFailed = true
+      throw new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."}}')
+    }
     if (s === ContextCanvasSchema) {
       // 의도를 답했으면 재설계된 캔버스는 clear=true
       return (user.includes('<min_answers>') ? { ...canvas, intent: { ...canvas.intent, clear: true, questions: [] } } : canvas) as never

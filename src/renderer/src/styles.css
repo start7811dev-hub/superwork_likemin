@@ -141,7 +141,8 @@ p { margin: 6px 0; line-height: 1.6; }
 @keyframes pulse { 0%, 100% { opacity: .25; } 50% { opacity: .9; } }
 @keyframes blink { 50% { opacity: .25; } }
 
-.error-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); background: #fff; border: 1px solid #f6cdc9; color: var(--bad); padding: 8px 14px; border-radius: 10px; max-width: 70%; font-size: 12.5px; box-shadow: 0 6px 20px rgba(0, 0, 0, .06); }
+.error-banner { position: absolute; top: 14px; left: 50%; transform: translateX(-50%); z-index: 4; background: #fff; border: 1px solid var(--line); padding: 14px 16px; border-radius: 12px; width: min(560px, 80%); font-size: 13px; box-shadow: 0 1px 2px rgba(17,17,20,.04), 0 18px 48px rgba(17,17,20,.10); display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.error-banner p { flex-basis: 100%; margin: 0; color: var(--bad); line-height: 1.55; }
 
 .command { position: absolute; left: 24px; right: 24px; bottom: 18px; }
 .examples { display: flex; gap: 6px; margin-bottom: 8px; flex-wrap: wrap; }

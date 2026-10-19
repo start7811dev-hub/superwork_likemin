@@ -43,7 +43,8 @@ export function recoverInterrupted(): void {
     const r = getRun(s.id)
     if (!r) continue
     r.status = 'error'
-    r.error = '앱이 종료되어 실행이 중단되었습니다.'
+    r.error = '앱이 종료되어 실행이 중단되었습니다. 지금까지의 결과는 저장되어 있습니다. "이어서 진행"을 누르면 멈춘 단계부터 다시 시작합니다.'
+    r.resumable = true
     saveRun(r)
   }
 }

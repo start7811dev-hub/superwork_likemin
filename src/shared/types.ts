@@ -179,6 +179,10 @@ export interface RunRecord {
   /** SUPER INSIGHT: AARRR·TOWS·STP 2.0·CDJ 분석과 MIN'S 4-3-2 THINKING */
   insight?: Insight
   synthesis?: Synthesis
+  /** 첨부 파일 경로 — 이어서 진행할 때 자료를 다시 읽는다 */
+  attachments?: string[]
+  /** 한도·잔액 문제로 멈춰 이어서 진행할 수 있는 상태 */
+  resumable?: boolean
   /** 요즘 MIN이 꽂힌 것 — 이 업무의 콘셉트 재료로만 쓰고 규칙으로 저장하지 않는다 */
   minNow?: string
   /** 근본 이슈: 모든 중간 결과를 대입할 자리 */
@@ -395,6 +399,8 @@ export interface LikeMinApi {
     cancel(id: string): Promise<void>
     /** 질문 게이트 응답. null이면 가정대로 진행 */
     answer(id: string, answers: string[] | null): Promise<void>
+    /** 멈춘 실행을 저장된 단계 다음부터 이어서 진행 */
+    resume(id: string): Promise<string>
     feedback(id: string, chosen: string, note: string): Promise<void>
     onEvent(cb: (e: PipelineEvent) => void): () => void
   }

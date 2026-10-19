@@ -179,7 +179,25 @@ export default function App() {
           <div className="factory-view">
             <div className="stage">
               <Factory live={live} selected={selected} onSelect={setSelected} />
-              {live.status === 'error' && <div className="error-banner">{live.error}</div>}
+              {(live.status === 'error' || live.status === 'cancelled') && live.runId && (
+                <div className="error-banner">
+                  <p>{live.error ?? '실행이 중단되었습니다. 지금까지의 결과는 저장되어 있습니다.'}</p>
+                  <button
+                    className="primary"
+                    onClick={async () => {
+                      try {
+                        await api.runs.resume(live.runId!)
+                        setSelected('inbox')
+                      } catch (e) {
+                        showToast((e as Error).message.replace(/^Error invoking remote method '[^']+': (Error: )?/, ''))
+                      }
+                    }}
+                  >
+                    이어서 진행
+                  </button>
+                  <span className="muted small">끝난 단계는 다시 돌리지 않습니다</span>
+                </div>
+              )}
               {live.root && live.runId && (
                 <RootGate key={live.root.task} root={live.root} onSubmit={(ans) => void api.runs.answer(live.runId!, ans)} />
               )}
