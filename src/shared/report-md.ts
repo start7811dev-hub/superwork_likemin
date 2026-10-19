@@ -8,6 +8,63 @@ const LEVEL: Record<string, string> = { high: '높음', medium: '중간', low: '
 const list = (items: string[] | undefined) => (items?.length ? items.map((i) => `- ${i}`).join('\n') : '- (없음)')
 const cell = (s: string) => s.replace(/\|/g, '\\|').replace(/\n/g, ' ')
 
+/** 회차와 고도화가 전략을 어떻게 바꿨나 */
+export function strategyChangesToMarkdown(run: RunRecord): string {
+  const v = run.verification
+  const al = v?.align
+  const rows = [...(v?.reviewChanges ?? []).map((c) => ({ ...c, by: '재검증' })), ...(al?.changes ?? []).map((c) => ({ ...c, by: run.concept?.rounds.length ? '회차 → 고도화' : '고도화' }))]
+  if (!rows.length && !al?.superseded.length) return ''
+  const parts = ['## 전략에서 바뀐 것']
+  if (rows.length) parts.push(`| 단계 | 전 | 후 | 이유 |\n| --- | --- | --- | --- |\n${rows.map((r) => `| ${r.by} | ${cell(r.was)} | ${cell(r.now)} | ${cell(r.why)} |`).join('\n')}`)
+  if (al?.superseded.length) parts.push(`**회차로 대체된 전략 주장**\n${list(al.superseded.map((x) => `${x.claim} → ${x.by}`))}`)
+  return parts.join('\n\n')
+}
+
+const firstLine = (md: string) => md.split('\n').map((l) => l.replace(/^#+\s*/, '').replace(/\*\*/g, '').trim()).find(Boolean) ?? ''
+
+/** 핵심본: 결과물과 판단의 흐름만. 공정 기록 원문은 전체본에 둔다 */
+export function runToMarkdown(run: RunRecord): string {
+  const out: string[] = []
+  const s = run.synthesis
+  out.push(`# ${run.title}`)
+  out.push(`> SUPER WORK – LIKE MIN · ${new Date(run.createdAt).toLocaleString('ko-KR')} · 깊이: ${run.depth} · 두뇌 v${run.brainVersion} · 비용 약 $${estimateCost(run.usage).toFixed(2)} · 핵심본`)
+  out.push(`## 요청\n\n${run.brief}`)
+  const d = deliverableOf(run)
+  if (d) {
+    out.push(`## ${d.title}${d.summary ? `\n\n${d.summary}` : ''}${d.concept ? `\n\n> ${d.concept}` : ''}`)
+    out.push(d.sections.map((x) => `### ${x.heading}\n\n${x.body}`).join('\n\n'))
+  }
+  out.push('# 어떻게 여기까지 왔나')
+  if (run.rootIssue) out.push(`## 근본 이슈 (${run.rootIssue.by === 'min' ? 'MIN 확정' : 'MPM 추천'})\n\n**${run.rootIssue.issue}**\n\n판정 질문: ${run.rootIssue.test}`)
+  if (run.concept?.rounds.length) {
+    const AN: Record<string, string> = { go: '이 질문으로 가자', half: '반만', no: '아니다', stop: '지금 안으로 가자', auto: '자동 진행' }
+    out.push(
+      `## 콘셉트 회차 (${run.concept.rounds.length}회차)\n\n| 회차 | 걸림 | 최선 | 찌르는 질문 | MIN |\n| --- | --- | --- | --- | --- |\n` +
+        run.concept.rounds.map((h) => `| ${h.n} | ${cell(h.round.snag)} | ${cell(firstLine(h.round.best.idea))} | ${cell(h.card.question)} | ${cell(h.answer ? `${AN[h.answer.kind]}${h.answer.text ? ` — ${h.answer.text}` : ''}` : '-')} |`).join('\n')
+    )
+  }
+  if (run.workBrief) {
+    const b = run.workBrief
+    out.push(`## 1장 브리프\n\n**${b.proposition}**\n\n- 통찰: ${b.insight.truth}\n- 도약: ${firstLine(b.leap)}\n- 합격선: ${firstLine(b.bar)}`)
+  }
+  if (s) {
+    out.push(`## 전략 결론\n\n${s.executiveSummary}`)
+    const ch = strategyChangesToMarkdown(run)
+    if (ch) out.push(ch)
+    const rec = s.recommendation
+    out.push(`## 조건부 추천: ${rec.pick}\n\n${rec.rationale}\n\n**유효 조건**\n${list(rec.conditions)}\n\n**전환 계획:** ${rec.switchTo}`)
+    out.push(`## 대안\n\n${s.alternatives.map((a) => `- **${a.id}. ${a.name}** \`${a.archetype}\` — ${a.thesis}`).join('\n')}`)
+    if (run.insight) {
+      const i = run.insight
+      out.push(`## SUPER INSIGHT · 4-3-2\n\n**2 CORE KEY-CLAIMS**\n${i.keyClaims.map((k, n) => `${n + 1}. ${k.claim}`).join('\n')}\n\n**3 KEY SUCCESS FACTORS**\n${i.ksf.map((k, n) => `${n + 1}. ${k.factor} (지표: ${k.measure})`).join('\n')}\n\n**4 SUPER STRATEGIES**\n${i.superStrategies.map((x, n) => `${n + 1}. ${x.name}`).join('\n')}`)
+    }
+    if (s.nextVerification.length)
+      out.push(`## 다음 검증\n\n| 확인할 것 | 방법 | 맞으면 | 틀리면 |\n| --- | --- | --- | --- |\n${s.nextVerification.map((x) => `| ${cell(x.check)} | ${cell(x.method)} | ${cell(x.ifTrue)} | ${cell(x.ifFalse)} |`).join('\n')}`)
+  }
+  out.push('> 대안 전문, SUPER INSIGHT 방법론, 시뮬레이션, Factbook, 담당별 보고·검수 원문은 전체본(MD 전체)에 있습니다.')
+  return out.join('\n\n') + '\n'
+}
+
 /** 최종 결과물. v0.2 이전 기록은 전략 종합 안에 산출물이 있었다. */
 export function deliverableOf(run: RunRecord): Deliverable | undefined {
   if (run.deliverable) return run.deliverable
@@ -29,8 +86,8 @@ export function briefToMarkdown(b: Brief, head = '## 1장 브리프'): string {
     .join('\n\n')
 }
 
-/** 실행 결과를 공유·연동용 마크다운으로 변환한다. 순서: 결과물 → 브리프 → 전략 근거 */
-export function runToMarkdown(run: RunRecord): string {
+/** 전체본: 결과물 → 브리프 → 전략 근거 → 부록(공정 기록 원문) */
+export function runToMarkdownFull(run: RunRecord): string {
   const out: string[] = []
   const s = run.synthesis
   const c = run.canvas
@@ -62,6 +119,8 @@ export function runToMarkdown(run: RunRecord): string {
 
   if (s) {
     out.push(`# 전략 근거\n\n## 전략 결론\n\n${s.executiveSummary}`)
+    const changes = strategyChangesToMarkdown(run)
+    if (changes) out.push(changes)
     out.push(
       `## 코어\n\n| 축 | 내용 |\n| --- | --- |\n| 목표 | ${cell(s.coreRestated.goal)} |\n| 목적 | ${cell(s.coreRestated.purpose)} |\n| 브랜드 | ${cell(s.coreRestated.brand)} |\n| 소비자 | ${cell(s.coreRestated.consumer)} |\n| 시장 | ${cell(s.coreRestated.market)} |`
     )

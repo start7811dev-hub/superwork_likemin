@@ -110,6 +110,7 @@ export function fromRecord(r: RunRecord): LiveState {
   if (r.synthesis) nodes.synthesize = done(`대안 ${r.synthesis.alternatives.length}개`)
   if (v?.review) nodes.review = done(v.review.verdict === 'improve' ? `개선 ${v.review.issues.length}건` : '유지')
   if (v?.refine) nodes.refine = done(v.refine.verdict === 'improve' ? `고도화 ${v.refine.issues.length}건` : '유지')
+  if (v?.align) nodes.refine = done(`전략 반영 ${v.align.changes.length}건`)
   if (v?.clone) nodes.clone = done(v.clone.bigIssue ? '직권 지시 반영' : '통합 검증 통과')
   if (r.concept?.rounds.length) nodes.rounds = done(`${r.concept.rounds.length}회차`)
   if (r.concept?.rounds.length && !r.briefReview) nodes.clone = done(`${r.concept.rounds.length}회차 편집`)

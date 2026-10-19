@@ -265,7 +265,18 @@ function Body({ id, r }: { id: string; r: RunRecord }) {
   }
 
   if (id === 'review') return r.verification?.review ? <ReviewView r={r.verification.review} title="재검증" /> : <p className="muted">결과가 나오면 다시 고민합니다</p>
-  if (id === 'refine') return r.verification?.refine ? <ReviewView r={r.verification.refine} title="고도화" /> : <p className="muted">재검증 이후 디테일을 다듬습니다</p>
+  if (id === 'refine') {
+    const al = r.verification?.align
+    if (al)
+      return (
+        <>
+          <Sec title={`전략에서 바뀐 것 ${al.changes.length}건`}><ul>{al.changes.map((c, i) => <li key={i}><span className="muted">{c.was}</span> → <b>{c.now}</b><div className="small muted">{c.why}</div></li>)}</ul></Sec>
+          {al.superseded.length > 0 && <Sec title="회차로 대체된 전략 주장"><ul>{al.superseded.map((x, i) => <li key={i}>{x.claim} → <b>{x.by}</b></li>)}</ul></Sec>}
+          <JudgmentView j={al.judgment} />
+        </>
+      )
+    return r.verification?.refine ? <ReviewView r={r.verification.refine} title="고도화" /> : <p className="muted">콘셉트 회차의 결론을 전략에 반영합니다</p>
+  }
   if (id === 'rounds' || (id === 'clone' && r.concept?.rounds.length)) {
     const c = r.concept
     if (!c?.rounds.length) return <p className="muted">전략이 끝나면 기본안에서 출발해 걸림 → 수 → 대입 → 고르기를 돕니다</p>
@@ -420,7 +431,7 @@ const TITLES: Record<string, string> = {
   factbook: 'Factbook 도서관',
   insight: 'SUPER INSIGHT 연구소',
   review: 'MPM · 재검증',
-  refine: 'MPM · 최종 검증 A (고도화)',
+  refine: 'MPM · 고도화 (회차를 전략으로)',
   clone: 'MPM 클론 · 편집장',
   rounds: '콘셉트 회차',
   synthesize: 'MPM · 전략 종합',

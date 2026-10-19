@@ -596,6 +596,15 @@ export type Deliverable = z.infer<typeof DeliverableSchema>
 
 export const DocTasteSchema = z.object({
   judgment: JudgmentSchema,
+  barChecks: z
+    .array(z.object({ item: z.string().describe('브리프 합격선의 한 항목'), pass: z.boolean(), why: z.string() }))
+    .describe('브리프 합격선을 항목별로 판정한다. 하나라도 미달이면 verdict="fix"이고 issues에 고칠 절을 쓴다'),
+  premises: z
+    .array(z.object({ claim: z.string().describe('결과물이 진단·전제로 쓴 주장'), source: z.enum(['fact', 'inference', 'hypothesis']), labeled: z.boolean().describe('결과물 본문에 가설·추론이라고 밝혔으면 true') }))
+    .describe('진단의 첫 고리가 되는 전제들. 가설·추론인데 labeled=false면 issues에 넣는다'),
+  redTeam: z
+    .array(z.object({ point: z.string(), status: z.enum(['answered', 'risk', 'ignored']).describe('answered=결과물이 답함, risk=남는 리스크로 명시, ignored=다루지 않음') }))
+    .describe('레드팀 지적의 처리 상태. ignored가 있으면 issues에 넣는다'),
   flowReads: z.boolean().describe('제목만 이어 읽어도 논지가 서는가'),
   leapScore: z.number().describe('도약 1~5'),
   verdict: z.enum(['pass', 'fix']),
@@ -685,3 +694,26 @@ export const EditorSchema = z.object({
   stopWhy: z.string()
 })
 export type Editor = z.infer<typeof EditorSchema>
+
+/* ---------- 바뀐 부분만 고치기 (전체 다시 쓰기 대신) ---------- */
+export const PatchSchema = z.object({
+  patches: z
+    .array(
+      z.object({
+        path: z.string().describe('고칠 필드 경로. 예: executiveSummary / recommendation.rationale / alternatives[A].thesis / alternatives[B].risks / comparison[0]'),
+        value: z.string().describe('새 값. 문자열 필드는 그대로, 배열·객체·숫자는 JSON으로')
+      })
+    )
+    .describe('바뀌는 필드만. 바뀌지 않는 필드는 넣지 않는다'),
+  changes: z.array(z.object({ was: z.string(), now: z.string(), why: z.string() })).describe('무엇이 무엇으로, 왜 바뀌었나 (사람이 읽는 변경 기록)')
+})
+export type Patch = z.infer<typeof PatchSchema>
+
+/** 고도화: 콘셉트 회차의 결론을 전략에 반영하고 디테일을 다듬는다 */
+export const AlignSchema = z.object({
+  judgment: JudgmentSchema,
+  superseded: z.array(z.object({ claim: z.string().describe('회차를 거쳐 대체된 전략 주장(4-3-2·추천·대안)'), by: z.string().describe('무엇으로 대체됐나') })),
+  patches: PatchSchema.shape.patches,
+  changes: PatchSchema.shape.changes
+})
+export type Align = z.infer<typeof AlignSchema>

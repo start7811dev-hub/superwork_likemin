@@ -5,7 +5,7 @@ import { BrowserWindow, dialog } from 'electron'
 import { writeFileSync } from 'node:fs'
 import { marked } from 'marked'
 import type { ExportFormat, RunRecord } from '../../shared/types'
-import { factbookToMarkdown, runToMarkdown } from '../../shared/report-md'
+import { factbookToMarkdown, runToMarkdown, runToMarkdownFull } from '../../shared/report-md'
 
 interface Exporter {
   ext: string
@@ -44,7 +44,8 @@ async function htmlToPdf(html: string): Promise<Buffer> {
 }
 
 export const EXPORTERS: Record<Exclude<ExportFormat, 'pptx'>, Exporter> = {
-  md: { ext: 'md', label: 'Markdown', render: async (r) => runToMarkdown(r) },
+  md: { ext: 'md', label: 'Markdown (핵심본)', render: async (r) => runToMarkdown(r) },
+  'md-full': { ext: 'md', label: 'Markdown (전체본)', render: async (r) => runToMarkdownFull(r) },
   html: { ext: 'html', label: 'HTML', render: async (r) => runToHtml(r) },
   json: { ext: 'json', label: 'JSON (원본 데이터)', render: async (r) => JSON.stringify(r, null, 2) },
   pdf: { ext: 'pdf', label: 'PDF', render: async (r) => htmlToPdf(runToHtml(r)) },

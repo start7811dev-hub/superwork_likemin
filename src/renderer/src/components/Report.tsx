@@ -103,8 +103,8 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
       <div className="report-bar">
         <div className="group">
           <span className="eyebrow">내보내기</span>
-          {(['pdf', 'md', 'html', 'json'] as ExportFormat[]).map((f) => (
-            <button key={f} className="chip" onClick={() => doExport(f)}>{f.toUpperCase()}</button>
+          {([['pdf', 'PDF'], ['md', 'MD'], ['md-full', 'MD 전체'], ['html', 'HTML'], ['json', 'JSON']] as [ExportFormat, string][]).map(([f, label]) => (
+            <button key={f} className="chip" onClick={() => doExport(f)} title={f === 'md-full' ? '부록(대안 전문·시뮬레이션·Factbook·담당 보고 원문)까지 모두 담은 전체본' : f === 'json' ? '원본 데이터' : '결과물과 판단의 흐름만 담은 핵심본'}>{label}</button>
           ))}
           {run.factbook && <button className="chip" onClick={() => doExport('factbook')}>Factbook</button>}
           <button className="chip" disabled={busy === 'pptx' || run.demo} title={run.demo ? '데모 실행은 PPT로 만들 수 없습니다' : 'Claude의 PPTX 스킬로 보고용 덱을 만듭니다 (1~3분, API 비용 발생)'} onClick={async () => {
@@ -157,7 +157,7 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
       {tab === 'verify' && (
         <article className="doc">
           <div className="eyebrow">성미 급한 MPM의 검증 이력</div>
-          <h1>전략 → 재검증 → 콘셉트 회차 → 브리프 → 제작 → 취향 심사</h1>
+          <h1>전략 → 재검증 → 콘셉트 회차 → 고도화 → 브리프 → 제작 → 취향 심사</h1>
           <ul className="vtrail">
             {run.verification?.versions.map((v, i) => <li key={i}><b>v{i + 1} · {v.label}</b> <span className="muted small">{new Date(v.at).toLocaleTimeString('ko-KR')}</span></li>)}
           </ul>
@@ -201,6 +201,9 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
           {run.production?.docTaste && (
             <section><h2>결과물 심사 — {run.production.docTaste.verdict === 'fix' ? `${run.production.fixed?.length ?? 0}개 절 수정` : '통과'}</h2>
               <p className="muted small">제목 흐름 {run.production.docTaste.flowReads ? '통과' : '끊김'} · 도약 {run.production.docTaste.leapScore}/5</p>
+              {run.production.docTaste.barChecks?.length ? <><h5>합격선</h5><ul>{run.production.docTaste.barChecks.map((b, i) => <li key={i}>{b.pass ? '통과' : <b>미달</b>} · {b.item} <span className="muted small">{b.why}</span></li>)}</ul></> : null}
+              {run.production.docTaste.premises?.length ? <><h5>진단의 전제</h5><ul>{run.production.docTaste.premises.map((p, i) => <li key={i}>{{ fact: '사실', inference: '추론', hypothesis: '가설' }[p.source]}{p.source !== 'fact' ? (p.labeled ? ' · 본문에 표시' : ' · 표시 안 됨') : ''} — {p.claim}</li>)}</ul></> : null}
+              {run.production.docTaste.redTeam?.length ? <><h5>레드팀 지적 처리</h5><ul>{run.production.docTaste.redTeam.map((r, i) => <li key={i}>{{ answered: '답함', risk: '리스크로 명시', ignored: '다루지 않음' }[r.status]} — {r.point}</li>)}</ul></> : null}
               <ul>{run.production.docTaste.issues.map((x, i) => <li key={i}><b>{x.heading}</b> {x.problem} → {x.fix}</li>)}</ul>
             </section>
           )}
@@ -256,6 +259,25 @@ export default function Report({ run, onToast }: { run: RunRecord; onToast(msg: 
             <Md text={s.executiveSummary} />
           </section>
         )}
+
+        {(run.verification?.align?.changes.length || run.verification?.reviewChanges?.length || run.verification?.align?.superseded.length) ? (
+          <section>
+            <h2>전략에서 바뀐 것</h2>
+            <table className="cmp">
+              <thead><tr><th>단계</th><th>전</th><th>후</th><th>이유</th></tr></thead>
+              <tbody>
+                {(run.verification?.reviewChanges ?? []).map((c, i) => <tr key={`r${i}`}><td>재검증</td><td>{c.was}</td><td>{c.now}</td><td className="muted small">{c.why}</td></tr>)}
+                {(run.verification?.align?.changes ?? []).map((c, i) => <tr key={`a${i}`}><td>{run.concept?.rounds.length ? '회차 → 고도화' : '고도화'}</td><td>{c.was}</td><td>{c.now}</td><td className="muted small">{c.why}</td></tr>)}
+              </tbody>
+            </table>
+            {run.verification?.align?.superseded.length ? (
+              <>
+                <h5>회차로 대체된 전략 주장</h5>
+                <ul>{run.verification.align.superseded.map((x, i) => <li key={i}><span className="muted">{x.claim}</span> → <b>{x.by}</b></li>)}</ul>
+              </>
+            ) : null}
+          </section>
+        ) : null}
 
         <section className="core-grid">
           {([['목표', s.coreRestated.goal], ['목적', s.coreRestated.purpose], ['브랜드', s.coreRestated.brand], ['소비자', s.coreRestated.consumer], ['시장', s.coreRestated.market]] as const).map(([k, v]) => (

@@ -5,7 +5,8 @@
 import { METHODS, MOVES, type AuditResult, type Brief, type Editor, type ReviewCard, type Round, type Deliverable, type DocTaste, type CloneReview, type ContextCanvas, type DispatchPlan, type Factbook, type Insight, type Method, type Review, type Simulation, type Synthesis, type TaskSpec, type WorkerReport } from '../../shared/schemas'
 import type { RoleDef, TaskRun } from '../../shared/types'
 
-const j = (v: unknown) => JSON.stringify(v, null, 2)
+/** 프롬프트에 넣는 JSON은 압축한다 (들여쓰기는 모델에게 의미 없는 토큰이다) */
+const j = (v: unknown) => JSON.stringify(v)
 
 /** 사람이 읽는 결과물의 문체 (doctrine §8) */
 const WRITING = `문체 (knowledge/min-voice.md — MIN의 문장. 사람이 읽는 모든 문장에 적용):
@@ -121,6 +122,7 @@ MIN 체크(필수): 각 대안에 영향력 확산 경로, 비용(범위·내역
 SUPER INSIGHT의 2 CORE KEY-CLAIMS 위에 대안을 세우고, 각 대안이 4 SUPER STRATEGIES 중 무엇을 실현하는지와 3 KSF를 어떻게 충족하는지가 드러나게 한다. 비교표 기준에 3 KSF를 포함한다.
 MIN의 답변(min_answers)이 있으면 최우선 맥락으로 반영하고, 답하지 않은 질문은 가정으로 명시해 다음 검증에 올린다.
 Factbook을 사실 근거로 쓰고, Factbook에 없는 수치는 확정하지 않는다.
+길이: 대안의 문자열 필드는 한두 문장, 목록 필드는 3개 이내로 쓴다. MIN 체크 항목은 모두 채우되 길게 쓰지 않는다. 설명이 길어지면 판단이 흐려진다.
 결과물(카피·문서)은 여기서 만들지 않는다. 이 전략을 바탕으로 MPM이 1장 브리프를 쓰고, 제작 엔진이 결과물을 만든다. 그러니 대안마다 thesis를 날카롭게 써서 결과물의 방향이 바로 보이게 한다. 조건과 유보는 conditions·nextVerification에만 둔다.
 경계: 검수에서 반려된 주장이나 검증되지 않은 수치를 사실처럼 쓰지 않는다. 사실/가정/미확인을 분리한다. 다음 검증은 '맞으면/틀리면 무엇을 하는가'까지 쓴다.
 ${WRITING}`,
@@ -186,7 +188,7 @@ ${COPY_WRITING}`,
 
   taste: `[현재 역할: MPM 편집장 — 취향 심사 (doctrine §0.12)]
 심판이 아니라 편집장이다. 후보를 걸러 내지 말고, 가장 멀리 간 것을 고르고 키울 방향을 준다.
-모든 후보를 새로움(기본안에서 얼마나 멀리) × 쓸모(받는 사람이 실제로 얻는 것) 지도에 올린다. 목적 정합(purposeOk)은 축이 아니라 조건이다. 목적에 어긋난 후보는 지도에 올리지 않는다.
+모든 후보를 새로움(이 카테고리의 기본안에서 얼마나 멀리) × 쓸모(받는 사람이 실제로 얻는 것) 지도에 올린다. 새로움은 카테고리 안의 기준이다. 익숙한 형식을 빌린 후보는 감점하지 않는다 — 익숙함 위에서 무엇을 바꿨는지를 본다. 목적 정합(purposeOk)은 축이 아니라 조건이다. 목적에 어긋난 후보는 지도에 올리지 않는다.
 - 둘 다 높은 곳에서, 목적 안에서 가장 멀리 간 것을 picks로 3~7개 고른다. 각도가 겹치지 않게 한다.
 - 쓸모만 높은 뻔한 답, 새로움만 높은 억지 조합 중 아까운 것은 rescue에 살리는 법과 함께 남긴다.
 - 둘 다 낮으면 버린다. 버린 후보들의 공통 이유를 killedPatterns에 쓴다.
@@ -202,6 +204,7 @@ ${WRITING}`,
 ${WRITING}`,
 
   concept: `[현재 역할: MPM — 콘셉트 회차 (doctrine §0.12)]
+새로움의 기준은 이 카테고리 안이다. 세상에 없던 것이 아니라, 이 카테고리의 기본안(같은 업계가 보통 내는 답)에서 얼마나 멀리 갔는가를 본다. 다른 업계에 이미 있는 원리를 이 카테고리에 처음 들이는 것은 새로움이다.
 너는 정해진 순서로 생각하지 않는다. MIN의 도약 기록(identity/03-min-leaps.md)은 과거의 장면이지 규칙이 아니다. MIN은 정합성이 아니라 상황 대응으로 움직이고, 같은 과제를 다시 생각해도 다른 답을 낸다. 그러니 기록은 재료로만 쓴다: 카테고리에서 나가기, 주체 바꾸기, 약점·상식 뒤집기, 먼 분야에서 구조 빌리기, 전제 빼기 같은 움직임을 떠올리되, 이번 과제와 <min_now>(있으면)에서 출발한다. 기록의 테마·카피·결론을 재현하지 않는다.
 이번 회차에서 할 일:
 1. 지금 안에서 가장 불편한 약점(snag)을 한 문장으로 쓴다. 보완점이 아니라 이 안이 결국 뻔해지는 이유다. 첫 회차의 안은 거의 언제나 기본안이다.
@@ -217,6 +220,7 @@ ${WRITING}`,
 너는 심판이 아니라 편집장이다. 디테일보다 의도·목적, 타깃·브랜드, 시장을 통합해서 본다.
 1. 회차의 대입이 구체적인지 본다. 무엇이 달라지는지 보이지 않는 수는 vagueMoves에 넣어 버리게 한다.
    두 가지를 더 본다: 이 안이 경쟁사와 같은 줄에서 같은 단어로 말하고 있지 않은가, 이 도약이 기능·서비스·공간·행동으로 착지하는가. 걸리면 다음 회차의 방향이 그것을 겨냥하게 한다.
+   새로움은 카테고리 안의 기준으로 판단한다. 다른 업계에 있는 원리라는 이유로 깎지 않는다. 경험의 관성(익숙한 행동·형식)을 존중한 안은 감점하지 않는다 — 관성에 의존해 아무것도 바꾸지 않은 안만 걸림이다.
    MIN의 과거 도약과 닮았는지로 판단하지 않는다. 과거의 MIN에 맞추는 것이 아니라 지금의 MIN이 판단할 수 있게 카드를 쓴다.
 2. 찌르는 질문 후보 중 하나를 고른다. 근본 이슈에 묶여 있으면서 가장 날카로운 것. 공격 대상이나 잃는 것을 말할 수 없는 질문은 고르지 않는다. 극적이기만 한 질문도 고르지 않는다.
 3. 리뷰 카드를 쓴다: 지금 안 / 걸리는 것 / 찌르는 질문 (방식 → 이어지는 수) / 넣으면(얻는 것과 잃는 것). 네 줄 합쳐 400자 이내, 한 줄에 한두 문장. MIN이 한 번에 읽고 한마디로 답할 수 있어야 한다. 내부 용어·약어·영문 ID를 쓰지 않는다.
@@ -234,6 +238,9 @@ ${WRITING}`,
 브리프를 받은 제작자다. 전략 분석을 다시 하지 않는다. 브리프의 proposition 위에서, output이 요구한 결과물을 MIN이 바로 쓸 수 있게 만든다.
 - 문서형: brief.outline의 제목 흐름을 따르되, 더 나은 흐름이 보이면 고친다. 각 절의 첫 문장이 그 절의 요점이다. 콘셉트가 서면, 이미 있는 기능·서비스·자산을 콘셉트로 다시 설명하는 절을 둔다("우리가 이것을 만든 진짜 이유"). 기능이 콘셉트의 증거가 되게 한다. 측정·검증·리스크는 마지막 절 하나에 짧게 두고, 결과물의 중심을 옮기지 않는다.
 - 카피형: 살린 후보(picks)를 sharpen 지시대로 다듬어 쓰임별로 정리한다. 후보마다 헤드와 설명을 붙인다.
+- 진단의 근거가 시뮬레이션·추론·가설이면 본문에서도 그렇게 밝힌다(예: "~로 보입니다(관찰 전 가설)"). 결과물 전체가 서 있는 첫 전제라면, 무엇으로 확인할지 한 줄을 붙인다. 가설을 사실처럼 단정하지 않는다.
+- <red_team>의 지적마다 결과물이 답하거나, 답할 수 없으면 마지막 절에 남는 리스크로 밝힌다. 다루지 않고 넘어가지 않는다.
+- 콘텐츠·경험에는 익숙함의 비중을 둔다. 사람들이 이미 아는 형식(관성)을 존중하되, 그 위에서 바꾼 것을 분명히 한다.
 - concept는 브리프의 proposition을 결과물의 언어로 다시 쓴 한 줄이다.
 - summary는 3줄로 쓴다: 무엇을 만들었나 / 왜 이 방향인가 / 바로 할 일.
 ${copy ? COPY_WRITING + '\n설명·쓰임·근거 문장에는 아래 규칙을 따른다.\n' : ''}${WRITING}`,
@@ -242,6 +249,10 @@ ${copy ? COPY_WRITING + '\n설명·쓰임·근거 문장에는 아래 규칙을 
 제작된 문서를 MIN의 눈으로 본다. 정합성은 전략 단계에서 이미 봤으니, 여기서는 힘을 본다.
 - flowReads: 제목만 이어 읽어도 진단 → 원리 → 해법이 서는가. 문단 첫 문장만 이어 읽어도 논지가 서는가.
 - leapScore: 브리프의 도약이 결과물에 살아 있는가.
+- barChecks: 브리프의 합격선(bar)을 항목마다 통과·미달로 판정한다. 미달이 하나라도 있으면 verdict="fix"다.
+- premises: 진단의 첫 고리가 되는 전제를 적고, 사실·추론·가설 중 무엇인지, 본문에 밝혔는지 본다. 가설·추론을 사실처럼 단정했으면 고친다.
+- redTeam: <red_team>의 지적마다 결과물이 답했는지(answered), 남는 리스크로 밝혔는지(risk), 다루지 않았는지(ignored) 판정한다. ignored는 고친다.
+- 새로움은 카테고리 안의 기준으로 본다. 익숙한 형식을 쓴 콘텐츠는 감점하지 않는다.
 - 고칠 절만 issues에 제목 그대로 적는다. 고칠 것이 없으면 pass로 한다. 조건·유보를 늘리라는 지적은 하지 않는다.
 ${WRITING}
 ${JUDGE_TEXT}`,
@@ -249,6 +260,24 @@ ${JUDGE_TEXT}`,
   sectionFix: (copy: boolean) => `[현재 역할: 제작 — 부분 수정]
 지적받은 절만 다시 쓴다. 다른 절은 출력하지 않는다. originalHeading에는 원래 제목을 그대로 적는다.
 ${copy ? COPY_WRITING + '\n' : ''}${WRITING}`,
+
+  patch: `[현재 역할: MPM — 지적 반영 (바뀐 부분만)]
+이전 결과에 검증 지시를 반영한다. 전체를 다시 쓰지 않는다. 지시가 건드리는 필드와, 그 변경 때문에 일관성이 깨지는 필드만 patches로 낸다.
+- path 예: executiveSummary / recommendation.rationale / recommendation.conditions / alternatives[A].thesis / alternatives[B].risks / comparison[0] / nextVerification
+- 배열 필드를 고치면 그 배열 전체를 JSON으로 낸다. 객체 하나를 통째로 바꿀 때도 JSON으로 낸다.
+- 최소 3개의 본질적으로 다른 대안 규칙은 그대로 지킨다. 대안을 지우지 않는다.
+- changes에는 무엇이 무엇으로, 왜 바뀌었는지 사람이 읽을 기록을 쓴다.
+${WRITING}`,
+
+  align: `[현재 역할: MPM — 고도화: 콘셉트를 전략에 반영한다 (doctrine §0.7-4)]
+콘셉트 회차는 전략에서 출발해 더 멀리 갔다. 이제 그 결론과 MIN의 답을 전략으로 되돌려, 전략이 결과물의 근거가 되게 다듬는다. 회차가 없었다면 전략의 디테일을 다듬는다.
+- superseded: 회차를 거쳐 대체된 전략 주장(2 CORE KEY-CLAIMS·4 SUPER STRATEGIES·추천·대안 thesis)을 적고, 무엇으로 대체됐는지 쓴다. 대체된 것을 지우지 말고 기록한다.
+- patches: 추천(recommendation)·전략 결론(executiveSummary)·관련 대안을 콘셉트와 맞게 고친다. 바뀌는 필드만 낸다(path 규칙은 지적 반영과 같다). 콘셉트가 기존 대안 하나를 넘어섰다면 추천 대안의 thesis·howItWorks를 콘셉트로 갱신한다.
+- 디테일도 함께 본다: 숫자와 근거의 정합성, 비용·확인 필요 항목의 구체성, 첫 단계의 실행 가능성, 철회 조건의 측정 가능성.
+- 회차에서 MIN이 준 답은 최우선이다. 회차에서 버린 방향으로 전략을 되돌리지 않는다.
+- changes에는 회차가 전략을 어떻게 바꿨는지 사람이 읽을 기록을 쓴다.
+${WRITING}
+${JUDGE_TEXT}`,
 
   revise: `[현재 역할: MPM — 결과 개정]
 이전 결과에 검증 지시를 반영해 전체 결과를 다시 출력한다. 지시와 무관한 부분은 유지하되, 지시가 다른 부분에 영향을 주면 일관되게 고친다. 최소 3개의 본질적으로 다른 대안 규칙은 그대로 지킨다.
@@ -439,15 +468,41 @@ export function tasteUser(brief: Brief, candidates: { angle: string; head: strin
   return `${briefBlock(brief)}\n\n<candidates>\n${candidates.map((c, i) => `#${i} [${c.angle}] ${c.head}${c.body ? `\n   ${c.body}` : ''}`).join('\n')}\n</candidates>\n\n모든 후보를 채점하고 살릴 것을 골라라. id는 # 번호다.`
 }
 
-export function produceUser(brief: Brief, synthesis: Synthesis, opts: { picks?: string; sharpen?: string; factbook?: Factbook }): string {
+const redTeamBlock = (points: string[]) => (points.length ? `<red_team>\n${points.map((p, i) => `${i + 1}. ${p}`).join('\n')}\n</red_team>\n\n` : '')
+
+/** 반론 담당(devil)의 보고에서 결과물이 답해야 할 지적을 뽑는다 */
+export function redTeamPoints(tasks: TaskRun[]): string[] {
+  return tasks
+    .filter((t) => t.task.roleId === 'devil')
+    .flatMap((t) => t.rounds[t.rounds.length - 1]?.report.findings.map((f) => f.claim) ?? [])
+    .slice(0, 10)
+}
+
+export function patchUser(canvas: ContextCanvas, result: Synthesis, instructions: string, factbook?: Factbook): string {
+  return `${verifyContext(canvas, result, factbook)}\n\n<revision_instructions>\n${instructions}\n</revision_instructions>\n\n지시를 반영해 바뀌는 필드만 patches로 내라.`
+}
+
+export function alignUser(canvas: ContextCanvas, result: Synthesis, opts: { review?: Review; insight?: Insight; factbook?: Factbook; concept?: { history: RoundLog[]; final?: { idea: string; why: string } } }): string {
+  const parts = [
+    verifyContext(canvas, result, opts.factbook),
+    insightDigest(opts.insight).trim(),
+    opts.review?.issues.length ? `<previous_review>\n${opts.review.issues.map((i) => `- ${i.target}: ${i.problem} → ${i.fix}`).join('\n')}\n</previous_review>` : '',
+    opts.concept?.history.length
+      ? `<concept_rounds>\n${conceptDigest(opts.concept.history)}\n\n최종(final): ${opts.concept.final?.idea ?? '-'} — ${opts.concept.final?.why ?? ''}\n</concept_rounds>`
+      : '(이번 일은 콘셉트 회차를 돌지 않았다. 전략의 디테일을 다듬는다.)'
+  ]
+  return `${parts.filter(Boolean).join('\n\n')}\n\n고도화하라.`
+}
+
+export function produceUser(brief: Brief, synthesis: Synthesis, opts: { picks?: string; sharpen?: string; factbook?: Factbook; redTeam?: string[] }): string {
   const pick = synthesis.alternatives.find((a) => a.id === synthesis.recommendation.pick)
   const plan = pick ? `<direction>\n${j({ name: pick.name, thesis: pick.thesis, howItWorks: pick.howItWorks, firstSteps: pick.firstSteps, omit: pick.omit, conditions: synthesis.recommendation.conditions })}\n</direction>` : ''
   const picks = opts.picks ? `\n\n<picks>\n${opts.picks}\n</picks>\n\n<sharpen>\n${opts.sharpen ?? ''}\n</sharpen>` : ''
-  return `${briefBlock(brief)}\n\n${plan}\n\n${factbookDigest(opts.factbook)}${picks}\n\n결과물을 완성하라.`
+  return `${briefBlock(brief)}\n\n${plan}\n\n${factbookDigest(opts.factbook)}${redTeamBlock(opts.redTeam ?? [])}${picks}\n\n결과물을 완성하라.`
 }
 
-export function docTasteUser(brief: Brief, deliverable: Deliverable): string {
-  return `${briefBlock(brief)}\n\n<deliverable>\n${j(deliverable)}\n</deliverable>\n\n<headings>\n${deliverable.sections.map((x) => x.heading).join('\n')}\n</headings>\n\n이 결과물을 심사하라.`
+export function docTasteUser(brief: Brief, deliverable: Deliverable, redTeam: string[] = []): string {
+  return `${briefBlock(brief)}\n\n${redTeamBlock(redTeam)}<deliverable>\n${j(deliverable)}\n</deliverable>\n\n<headings>\n${deliverable.sections.map((x) => x.heading).join('\n')}\n</headings>\n\n이 결과물을 심사하라.`
 }
 
 export function sectionFixUser(brief: Brief, deliverable: Deliverable, issues: DocTaste['issues']): string {

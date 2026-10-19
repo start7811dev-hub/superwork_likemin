@@ -232,13 +232,15 @@ export class ClaudeEngine {
     let lastError = ''
     for (let attempt = 0; attempt < 3; attempt++) {
       const toolMode = jsonModeSchemas.has(opts.schema)
+      // 다시 부를 때는 지적된 곳만 고치면 되므로 추론 강도를 낮춘다 (대화 전체를 다시 보내므로 비용이 크다)
+      const effort: Effort = attempt === 0 || opts.effort === 'low' ? opts.effort : 'medium'
       const params = {
-        ...this.baseParams(opts.model, opts.effort, opts.maxTokens ?? 32000),
+        ...this.baseParams(opts.model, effort, opts.maxTokens ?? 32000),
         system: opts.system,
         messages,
         ...(toolMode
-          ? { output_config: { effort: opts.effort }, tools: [submitTool()], tool_choice: { type: 'auto' } }
-          : { output_config: { effort: opts.effort, format: outputFormat(opts.schema) } })
+          ? { output_config: { effort }, tools: [submitTool()], tool_choice: { type: 'auto' } }
+          : { output_config: { effort, format: outputFormat(opts.schema) } })
       } as BetaParams
       let msg: BetaMessage
       try {

@@ -96,7 +96,7 @@ function mpmLine(live: LiveState): string {
   if (s('produce') === 'running') return '브리프대로 만들어 봐 🎨'
   if (s('clone') === 'running') return live.nodes.clone?.detail?.includes('직권') ? '클론아, 네 말이 맞다…! 🫡' : '클론, 이 브리프 뻔해? 🔭'
   if (s('brief') === 'running') return '산을 한 장으로… 제일 힘든 데야 🔥'
-  if (s('refine') === 'running') return '디테일 하나만 더…✨'
+  if (s('refine') === 'running') return '회차에서 얻은 걸 전략에 다시 넣자 ✨'
   if (s('review') === 'running') return '음… 다시 생각해 보니 🤔'
   if (s('synthesize') === 'running') return '일단 끝까지 가 보자! ⚡'
   if (s('insight') === 'running') return '4-3-2부터 찍고 가자 🎯'
@@ -150,9 +150,9 @@ function layout(tasks: TaskSpec[]): StationDef[] {
     { id: 'synthesize', gx: 26.8, gy: 0, kind: 'printer', title: '대안 프린터', sub: '일단 결과부터', color: '#e7dcff' },
     // 검증 루프 (2열, 오른쪽 → 왼쪽)
     { id: 'review', gx: 26.8, gy: VROW, kind: 'loupe', title: '재검증실', sub: '다시 한번 고민', color: '#fff1b8' },
-    { id: 'refine', gx: 23.5, gy: VROW, kind: 'polish', title: '고도화 공방', sub: '최종 검증 A', color: '#d9f7c4' },
-    { id: 'rounds', gx: 20.2, gy: VROW, kind: 'lab', title: '콘셉트 회차', sub: '걸림 · 수 · 대입', color: '#e7dcff' },
-    { id: 'clone', gx: 16.9, gy: VROW, kind: 'tower', title: 'MPM 클론 전망대', sub: '편집장', color: '#d6e6ff' },
+    { id: 'rounds', gx: 23.5, gy: VROW, kind: 'lab', title: '콘셉트 회차', sub: '걸림 · 수 · 대입', color: '#e7dcff' },
+    { id: 'clone', gx: 20.2, gy: VROW, kind: 'tower', title: 'MPM 클론 전망대', sub: '편집장', color: '#d6e6ff' },
+    { id: 'refine', gx: 16.9, gy: VROW, kind: 'polish', title: '고도화 공방', sub: '회차를 전략으로', color: '#d9f7c4' },
     { id: 'brief', gx: 13.6, gy: VROW, kind: 'board', title: '1장 브리프', sub: '산을 언덕 말고 칼로', color: '#ffe0c7' },
     { id: 'produce', gx: 10.3, gy: VROW, kind: 'printer', title: '제작 스튜디오', sub: '유형별 제작', color: '#c9f3ef' },
     { id: 'taste', gx: 7.0, gy: VROW, kind: 'gate', title: '취향 심사', sub: '새로움 × 쓸모', color: '#fff1b8' },
@@ -569,10 +569,10 @@ export default function Factory({ live, selected, onSelect }: { live: LiveState;
     link('simulate', 'insight', LIME)
     link('insight', 'synthesize', LIME)
     link('synthesize', 'review', PINK)
-    link('review', 'refine', PINK)
-    link('refine', 'rounds', PINK)
+    link('review', 'rounds', PINK)
     link('rounds', 'clone', PINK)
-    link('clone', 'brief', PINK)
+    link('clone', 'refine', PINK)
+    link('refine', 'brief', PINK)
     link('brief', 'produce', LIME)
     link('produce', 'taste', LIME)
     link('taste', 'deliver', LIME)

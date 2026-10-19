@@ -5,6 +5,7 @@ import type {
   Candidates,
   Deliverable,
   DocTaste,
+  Align,
   Editor,
   ReviewCard,
   RootIssue,
@@ -207,6 +208,10 @@ export interface RunRecord {
     review?: Review
     refine?: Review
     clone?: CloneReview
+    /** 고도화(회차 이후): 콘셉트를 전략에 반영한 기록 */
+    align?: Align
+    /** 재검증 반영으로 바뀐 것 */
+    reviewChanges?: { was: string; now: string; why: string }[]
     /** 윤문: AI투 표현 수 (전 → 후) */
     polish?: { before: number; after: number; top: { phrase: string; count: number }[] }
     versions: { label: string; at: string }[]
@@ -272,7 +277,7 @@ export interface BrainSnapshot {
 }
 
 /* ---------- 내보내기 / 연동 ---------- */
-export type ExportFormat = 'md' | 'html' | 'json' | 'pdf' | 'factbook' | 'pptx'
+export type ExportFormat = 'md' | 'md-full' | 'html' | 'json' | 'pdf' | 'factbook' | 'pptx'
 
 export interface IntegrationField {
   key: string

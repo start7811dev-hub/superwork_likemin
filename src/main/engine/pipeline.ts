@@ -25,6 +25,8 @@ import {
   SectionFixSchema,
   TasteSchema,
   RootIssueSchema,
+  PatchSchema,
+  AlignSchema,
   RoundSchema,
   EditorSchema,
   ReviewCardSchema,
@@ -72,6 +74,7 @@ import { collectMaterials, textDigest, toBlocks } from '../materials'
 import { getSecret } from '../secrets'
 import { DemoEngine } from './demo'
 import { collectStrings, lintVoice } from './voice'
+import { applyPatches, type PatchOp } from './patch'
 import * as P from './prompts'
 
 const MAX_TASKS = 6
@@ -659,12 +662,41 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       node('synthesize', 'done', `초안 · 대안 ${result.alternatives.length}개`)
     }
 
+    /** 바뀐 필드만 받아 적용한다. 적용이 안 되거나 결과가 깨지면 그때만 전체를 다시 쓴다. */
+    const applyFix = async (patches: PatchOp[], label: string): Promise<boolean> => {
+      const { result: next, skipped } = applyPatches(result, patches)
+      const parsed = SynthesisSchema.safeParse(next)
+      const bad = parsed.success ? validateSynthesis(parsed.data) : '스키마 불일치'
+      if (skipped.length) log('synthesize', `${label}: 적용하지 못한 경로 ${skipped.length}개 (${skipped.slice(0, 3).join(', ')})`, 'warn')
+      if (!parsed.success || bad) {
+        log('synthesize', `${label}: 부분 수정 결과가 맞지 않아 이 수정은 건너뜀 — ${bad}`, 'warn')
+        return false
+      }
+      result = parsed.data
+      return true
+    }
+    const patchRevise = async (instructions: string, label: string) => {
+      const fix = await engine.structured({
+        model: models.mpm,
+        system: system(P.ROLE.patch),
+        user: P.patchUser(canvas, result, instructions, run.factbook),
+        effort: 'medium',
+        signal,
+        maxTokens: 24000,
+        schema: PatchSchema
+      })
+      log('synthesize', `${label}: ${fix.patches.length}개 필드만 고침`)
+      if (!(await applyFix(fix.patches, label))) {
+        result = await revise(instructions)
+      }
+      return fix.changes
+    }
     const revise = (instructions: string) =>
       engine.structured({
         model: models.mpm,
         system: system(P.ROLE.revise),
         user: P.reviseUser(canvas, result, instructions, run.factbook),
-        effort: effort.mpm,
+        effort: 'medium',
         signal,
         maxTokens: 64000,
         schema: SynthesisSchema,
@@ -692,45 +724,13 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
     if (review.verdict === 'improve' && review.issues.length) {
       node('review', 'running', `개선 ${review.issues.length}건 반영 중`)
       log('review', `재검증: 개선 ${review.issues.length}건 — ${review.issues.map((i) => i.target).join(', ')}`)
-      result = await revise(P.reviewToInstructions(review))
+      verification.reviewChanges = await patchRevise(P.reviewToInstructions(review), '재검증 반영')
       commit('재검증 반영')
     } else {
       log('review', '재검증: 수정 없이 유지')
       persist()
     }
     node('review', 'done', review.verdict === 'improve' ? `개선 ${review.issues.length}건` : '유지')
-    })
-    }
-
-    /* ---- 8. 최종 검증 A: 고도화 ---- */
-    packet('review', 'refine', 'final')
-    if (!proc.refine.run) {
-      skip('refine', proc.refine.reason)
-    } else if (verification.refine && (verification.refine.verdict !== 'improve' || hasVersion('고도화'))) {
-      reused('refine', verification.refine.verdict === 'improve' ? `고도화 ${verification.refine.issues.length}건` : '유지')
-    } else {
-    await optional('refine', '고도화', async () => {
-    node('refine', 'running', '디테일 고도화 검증 중')
-    const refine = verification.refine ?? await engine.structured({
-      model: models.mpm,
-      system: system(P.ROLE.refine),
-      user: P.refineUser(canvas, result, verification.review, run.factbook),
-      effort: effort.audit,
-      signal,
-      schema: ReviewSchema
-    })
-    verification.refine = refine
-    persist()
-    if (refine.verdict === 'improve' && refine.issues.length) {
-      node('refine', 'running', `디테일 ${refine.issues.length}건 고도화 중`)
-      log('refine', `고도화: 디테일 ${refine.issues.length}건`)
-      result = await revise(P.reviewToInstructions(refine))
-      commit('고도화')
-    } else {
-      log('refine', '고도화: 추가 디테일 없음')
-      persist()
-    }
-    node('refine', 'done', refine.verdict === 'improve' ? `고도화 ${refine.issues.length}건` : '유지')
     })
     }
 
@@ -743,7 +743,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       reused('rounds', `${history.length}회차`)
     } else {
       run.concept = { ...run.concept, rounds: history }
-      packet('refine', 'rounds', 'final')
+      packet('review', 'rounds', 'final')
       const maxRounds = Math.max(1, Math.min(5, settings.maxRounds))
       let steer: string | undefined
       let lastMove: string | undefined = history[history.length - 1]?.round.moves[0]?.move
@@ -847,8 +847,36 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       persist()
     }
 
-    /* ---- 10. BRIEF: 회차의 최선을 결과물로 옮기는 1장 (doctrine §0.11) ---- */
-    packet(roundsOn ? 'rounds' : 'refine', 'brief', 'final')
+    /* ---- 10. 고도화: 회차의 결론을 전략으로 되돌린다 (회차가 없었으면 디테일 고도화) ---- */
+    const roundsRan = roundsOn && history.length > 0
+    packet(roundsRan ? 'rounds' : 'review', 'refine', 'final')
+    if (!roundsRan && !proc.refine.run) {
+      skip('refine', proc.refine.reason)
+    } else if (verification.align || (verification.refine && hasVersion('고도화'))) {
+      reused('refine', verification.align ? `전략 반영 ${verification.align.changes.length}건` : '고도화')
+    } else {
+      await optional('refine', '고도화', async () => {
+        node('refine', 'running', roundsRan ? '회차의 결론을 전략에 반영 중' : '디테일 고도화 중')
+        const align = await engine.structured({
+          model: models.mpm,
+          system: system(P.ROLE.align),
+          user: P.alignUser(canvas, result, { review: verification.review, insight, factbook: run.factbook, concept: run.concept ? { history: run.concept.rounds, final: run.concept.final } : undefined }),
+          effort: effort.audit,
+          signal,
+          maxTokens: 24000,
+          schema: AlignSchema
+        })
+        verification.align = align
+        if (align.patches.length && (await applyFix(align.patches, '고도화'))) commit('고도화')
+        else persist()
+        if (align.superseded.length) log('refine', `회차로 대체된 전략 ${align.superseded.length}건: ${align.superseded.map((x) => x.claim).slice(0, 3).join(' / ')}`)
+        log('refine', `고도화: 전략 ${align.patches.length}개 필드 갱신`)
+        node('refine', 'done', roundsRan ? `전략 반영 ${align.changes.length}건` : `고도화 ${align.patches.length}건`)
+      })
+    }
+
+    /* ---- 11. BRIEF: 회차의 최선을 결과물로 옮기는 1장 (doctrine §0.11) ---- */
+    packet('refine', 'brief', 'final')
     node('brief', 'running', '1장 브리프 작성 중')
     const writeBrief = (previous?: Brief, directive?: string) =>
       engine.structured({
@@ -925,6 +953,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
       reused('taste', '저장된 결과')
     } else {
       const prof = PRODUCTION[brief.kind]
+    const redTeam = P.redTeamPoints(Object.values(run.tasks))
       const production: NonNullable<RunRecord['production']> = {}
       run.production = production
       packet('brief', 'produce', 'final')
@@ -980,7 +1009,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
         deliverable = await engine.structured({
           model: models.mpm,
           system: system(P.ROLE.produce(true)),
-          user: P.produceUser(brief, result, { picks, sharpen: taste.sharpen, factbook: run.factbook }),
+          user: P.produceUser(brief, result, { picks, sharpen: taste.sharpen, factbook: run.factbook, redTeam }),
           effort: effort.mpm,
           signal,
           maxTokens: 32000,
@@ -992,7 +1021,7 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
         deliverable = await engine.structured({
           model: models.mpm,
           system: system(P.ROLE.produce(prof.copy)),
-          user: P.produceUser(brief, result, { factbook: run.factbook }),
+          user: P.produceUser(brief, result, { factbook: run.factbook, redTeam }),
           effort: effort.mpm,
           signal,
           maxTokens: 64000,
@@ -1006,13 +1035,17 @@ async function execute(runId: string, args: StartArgs, signal: AbortSignal): Pro
         const docTaste = await engine.structured({
           model: models.mpm,
           system: system(P.ROLE.docTaste),
-          user: P.docTasteUser(brief, deliverable),
+          user: P.docTasteUser(brief, deliverable, redTeam),
           effort: effort.audit,
           signal,
           schema: DocTasteSchema
         })
         production.docTaste = docTaste
-        log('taste', `결과물 심사: 제목 흐름 ${docTaste.flowReads ? '통과' : '끊김'} · 도약 ${docTaste.leapScore}/5 · 고칠 절 ${docTaste.issues.length}개`)
+        const failedBar = docTaste.barChecks.filter((b) => !b.pass)
+      const unlabeled = docTaste.premises.filter((p) => p.source !== 'fact' && !p.labeled)
+      const ignored = docTaste.redTeam.filter((r) => r.status === 'ignored')
+      log('taste', `결과물 심사: 합격선 ${docTaste.barChecks.length - failedBar.length}/${docTaste.barChecks.length} · 가설 미표시 ${unlabeled.length} · 레드팀 미처리 ${ignored.length} · 도약 ${docTaste.leapScore}/5 · 고칠 절 ${docTaste.issues.length}개`)
+      for (const b of failedBar) log('taste', `합격선 미달: ${b.item} — ${b.why}`, 'warn')
         if (docTaste.verdict === 'fix' && docTaste.issues.length) {
           // 지적받은 절만 고친다 (전체를 다시 쓰면 평균으로 돌아간다)
           node('taste', 'running', `${docTaste.issues.length}개 절 고치는 중`)

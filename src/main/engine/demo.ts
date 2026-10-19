@@ -14,6 +14,9 @@ import {
   CloneReviewSchema,
   InsightSchema,
   RootIssueSchema,
+  PatchSchema,
+  AlignSchema,
+  type Align,
   RoundSchema,
   EditorSchema,
   ReviewCardSchema,
@@ -502,10 +505,23 @@ const deliverable: Deliverable = COPY_MODE
 
 const docTaste: DocTaste = {
   judgment: brief.judgment,
+  barChecks: [{ item: '읽고 나서 다음 주 월요일에 무엇을 할지 바로 알 수 있어야 한다', pass: true, why: '마지막 절이 1주차 할 일로 끝난다' }],
+  premises: [{ claim: '퇴근한 직장인은 요리보다 메뉴 결정에 더 지쳐 있다', source: 'hypothesis', labeled: true }],
+  redTeam: [{ point: '단건 구매가 구독보다 나은 조건이 있다', status: 'risk' }],
   flowReads: true,
   leapScore: 4,
   verdict: 'fix',
   issues: [{ heading: '첫 고객은 회사 복지 안에 이미 모여 있다', problem: '복지 담당자가 왜 받아들이는지가 빠졌다', fix: '담당자가 얻는 것(직원 만족 지표, 예산 소진)을 한 문장으로 넣는다' }]
+}
+
+const align: Align = {
+  judgment: brief.judgment,
+  superseded: [{ claim: '사내 단체 파일럿(B)은 제휴 영업으로 첫 고객을 모은다', by: '팀이 점심에 이번 주 저녁을 같이 정하고 퇴근길 픽업함에서 받아 가는 "팀 저녁"' }],
+  patches: [
+    { path: 'alternatives[B].thesis', value: '팀이 점심에 이번 주 저녁을 같이 정하고, 퇴근길 사무실 픽업함에서 받아 가는 "팀 저녁"으로 첫 고객을 모은다' },
+    { path: 'recommendation.rationale', value: '콘셉트 회차에서 사내 파일럿이 "팀 저녁"으로 바뀌었다. 결정 대행에 동료라는 믿을 근거가 붙어, 첫 박스 전에 신뢰가 생긴다.' }
+  ],
+  changes: [{ was: '사내 복지 제휴로 첫 박스를 배송', now: '팀 단위로 같이 정하고 퇴근길에 받아 가는 팀 저녁', why: '2회차 조합(점심의 동료 × 복지 채널)과 MIN의 "지금 안으로 가자"' }]
 }
 
 export class DemoEngine {
@@ -531,8 +547,8 @@ export class DemoEngine {
     this.bump(opts.model)
     const key = s === ReviewSchema ? 'review/refine' : String(Object.keys((opts.schema as unknown as { shape?: object }).shape ?? {}).slice(0, 2))
     demoCalls[key] = (demoCalls[key] ?? 0) + 1
-    // 재검증 다음의 두 번째 Review 호출 = 고도화
-    if (process.env.SWLM_DEMO_FAIL === 'refine' && key === 'review/refine' && demoCalls[key] === 2 && !demoFailed) {
+    // 고도화(회차 이후) 호출에서 한 번 실패
+    if (process.env.SWLM_DEMO_FAIL === 'refine' && s === AlignSchema && !demoFailed) {
       demoFailed = true
       throw new Error('400 {"type":"error","error":{"type":"invalid_request_error","message":"You have reached your specified API usage limits. You will regain access on 2026-11-01 at 00:00 UTC."}}')
     }
@@ -564,6 +580,9 @@ export class DemoEngine {
     if (s === SimulationSchema) return simulation as never
     if (s === SynthesisSchema) return synthesis as never
     if (s === BriefSchema) return brief as never
+    if (s === PatchSchema)
+      return { patches: [{ path: 'executiveSummary', value: synthesis.executiveSummary }], changes: [{ was: '추천 근거에 유지율 기준이 없음', now: '2회차 결제 유지율 60%를 판정 기준으로 명시', why: '재검증 지적' }] } as never
+    if (s === AlignSchema) return structuredClone(align) as never
     if (s === RootIssueSchema) return rootIssue as never
     if (s === RoundSchema) {
       const n = Number(user.match(/(\d+)회차다/)?.[1] ?? 1)
